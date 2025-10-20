@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-muted: #F7F7F8;
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --footer-bg: #0F172A;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: #fff;
+  color: var(--text-primary);
+}
+
+.container-narrow {
+  @apply mx-auto max-w-7xl px-4;
+}
