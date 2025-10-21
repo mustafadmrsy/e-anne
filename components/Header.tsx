@@ -1,12 +1,19 @@
 'use client'
 import Link from 'next/link'
+import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { CartIcon, UserIcon, SearchIcon, MenuIcon, CloseIcon } from './icons'
+import AccountTrigger from './AccountTrigger'
+import AccountMenu from './AccountMenu'
 import { categories } from '@/lib/categories'
 import { useCart } from './CartProvider'
 import { motion, AnimatePresence } from 'framer-motion'
+import { auth } from '@/lib/firebaseClient'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
 
 export default function Header() {
+  const router = useRouter()
+  const pathname = usePathname()
   const { count } = useCart()
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -17,6 +24,10 @@ export default function Header() {
   const catTimer = useRef<NodeJS.Timeout | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
   const accountMenuRef = useRef<HTMLDivElement>(null)
+  const [displayName, setDisplayName] = useState<string | null>(null)
+  const [isAuthed, setIsAuthed] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
     if (searchOpen) {
@@ -31,6 +42,14 @@ export default function Header() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [accountOpen])
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setDisplayName(u?.displayName ?? null)
+      setIsAuthed(!!u)
+    })
+    return () => unsub()
+  }, [])
 
   useEffect(() => {
     if (open) {
@@ -54,6 +73,20 @@ export default function Header() {
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
   }, [accountOpen])
+
+  useEffect(() => {
+    setOpen(false)
+    setAccountOpen(false)
+    setCartOpen(false)
+    setConfirmOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
 
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b">
@@ -153,53 +186,134 @@ export default function Header() {
             </label>
           </div>
 
-          {/* Hesap */}
-          <button
-            ref={accountBtnRef}
-            aria-label="Hesabım"
-            className="p-2 rounded-lg hover:bg-slate-100"
-            onClick={() => {
-              setAccountOpen((v) => !v)
-              setCartOpen(false)
-            }}
-          >
-            <UserIcon />
-          </button>
-          {accountOpen && !open && (
-            <div
-              ref={accountMenuRef}
-              className="absolute right-4 top-16 z-50 w-64"
+          {/* Hesap (desktop) */}
+          <div className="relative hidden md:flex items-center gap-1">
+            <button
+              ref={accountBtnRef}
+              aria-label="Hesabım"
+              className="p-2 rounded-lg hover:bg-slate-100"
+              onClick={() => {
+                setAccountOpen((v) => !v)
+                setCartOpen(false)
+              }}
             >
-              <div className="rounded-xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 p-2">
-                <Link
-                  href="/account"
-                  className="block rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
-                >
-                  Hesabım
-                </Link>
-                <Link
-                  href="/orders"
-                  className="mt-1 block rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
-                >
-                  Siparişlerim
-                </Link>
-                <Link
-                  href="/login"
-                  className="mt-1 block rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
-                >
-                  Giriş Yap
-                </Link>
+              <UserIcon />
+            </button>
+            {displayName && (
+              <span className="hidden md:block text-sm text-slate-700 ml-1">
+                {displayName}
+              </span>
+            )}
+            {accountOpen && (
+              <div
+                ref={accountMenuRef}
+                className="absolute left-1/2 top-full mt-2 -translate-x-1/2 transform z-50 w-72"
+              >
+                <div className="relative rounded-xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5 overflow-hidden">
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 h-4 w-4 rotate-45 bg-white border border-slate-200 border-b-0 border-r-0"></span>
+                  <div className="p-3 flex items-center gap-3 border-b">
+                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                      <UserIcon />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-800 truncate">{displayName ?? 'Misafir'}</p>
+                      <p className="text-xs text-slate-500">Hesap menüsü</p>
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    {isAuthed ? (
+                      <>
+                        <Link
+                          href="/account"
+                          className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
+                        >
+                          <span className="text-slate-500"><UserIcon /></span>
+                          <span>Hesabım</span>
+                        </Link>
+                        <Link
+                          href="/orders"
+                          className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
+                        >
+                          <span className="text-slate-500"><CartIcon /></span>
+                          <span>Siparişlerim</span>
+                        </Link>
+                        <button
+                          className="mt-1 w-full flex items-center gap-3 rounded-lg px-3 py-2 text-left text-red-600 bg-red-50 hover:bg-red-100"
+                          onClick={() => setConfirmOpen(true)}
+                        >
+                          <span className="text-red-500">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                          </span>
+                          <span>Çıkış Yap</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/login"
+                          className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
+                        >
+                          <span className="text-slate-500">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                          </span>
+                          <span>Giriş Yap</span>
+                        </Link>
+                        <Link
+                          href="/register"
+                          className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
+                        >
+                          <span className="text-slate-500">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                          </span>
+                          <span>Kayıt Ol</span>
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                  {confirmOpen && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                      <div className="w-full mx-3 max-w-sm rounded-xl border border-slate-200 bg-white shadow-xl p-4">
+                        <h3 className="text-base font-semibold text-slate-800">Çıkış yapılsın mı?</h3>
+                        <p className="mt-1 text-sm text-slate-600">Hesabınızdan çıkış yapmayı onaylıyor musunuz?</p>
+                        <div className="mt-4 flex items-center justify-end gap-2">
+                          <button
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                            onClick={() => setConfirmOpen(false)}
+                          >
+                            İptal
+                          </button>
+                          <button
+                            className="px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                            onClick={async () => {
+                              try { 
+                                await signOut(auth) 
+                              } finally {
+                                setConfirmOpen(false)
+                                setAccountOpen(false)
+                                setToast('Çıkış yapıldı')
+                                setTimeout(() => { 
+                                  window.location.href = '/' 
+                                }, 900)
+                              }
+                            }}
+                          >
+                            Evet, çıkış yap
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Sepet */}
+            )}
+          </div>
           <button
             aria-label="Sepet"
             className="relative p-2 rounded-lg hover:bg-slate-100"
             onClick={() => {
-              setCartOpen((v) => !v)
               setAccountOpen(false)
+              setCartOpen(false)
+              router.push('/cart')
             }}
           >
             <CartIcon />
@@ -228,7 +342,18 @@ export default function Header() {
               exit={{ y: '-100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               className="fixed inset-0 z-[10000] bg-white min-h-screen shadow-2xl p-0 flex flex-col overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation()
+              }}
+              onTouchStart={(e) => {
+                e.stopPropagation()
+              }}
             >
               <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b bg-white">
                 <img
@@ -237,22 +362,22 @@ export default function Header() {
                   className="h-14 w-auto"
                 />
                 <div className="flex items-center gap-2">
-                  <button
-                    aria-label="Hesabım"
-                    className="p-2.5 rounded-lg hover:bg-slate-100 active:bg-slate-200"
+                  <AccountTrigger
                     onClick={() => {
                       setAccountOpen((v) => !v)
                       setCartOpen(false)
                     }}
-                  >
-                    <UserIcon />
-                  </button>
+                    showName
+                    displayName={displayName}
+                  />
                   <button
                     aria-label="Sepet"
                     className="relative p-2.5 rounded-lg hover:bg-slate-100 active:bg-slate-200"
                     onClick={() => {
-                      setCartOpen((v) => !v)
                       setAccountOpen(false)
+                      setCartOpen(false)
+                      setOpen(false)
+                      router.push('/cart')
                     }}
                   >
                     <CartIcon />
@@ -271,6 +396,71 @@ export default function Header() {
                   </button>
                 </div>
               </div>
+              {/* Mobil: Hesap/Cart açılır bölümleri */}
+              {accountOpen && (
+                <AccountMenu
+                  variant="mobile"
+                  isAuthed={isAuthed}
+                  displayName={displayName}
+                  onLogoutClick={() => setConfirmOpen(true)}
+                  onNavigate={(href) => {
+                    router.push(href)
+                    // Fallback for some mobile browsers
+                    setTimeout(() => {
+                      if (typeof window !== 'undefined' && window.location.pathname !== href) {
+                        window.location.href = href
+                      }
+                    }, 0)
+                    setOpen(false)
+                    setAccountOpen(false)
+                  }}
+                />
+              )}
+              {confirmOpen && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+                  <div className="w-full mx-6 max-w-sm rounded-xl border border-slate-200 bg-white shadow-2xl p-4">
+                    <h3 className="text-base font-semibold text-slate-800">Çıkış yapılsın mı?</h3>
+                    <p className="mt-1 text-sm text-slate-600">Hesabınızdan çıkış yapmayı onaylıyor musunuz?</p>
+                    <div className="mt-4 flex items-center justify-end gap-2">
+                      <button
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                        onClick={() => setConfirmOpen(false)}
+                      >
+                        İptal
+                      </button>
+                      <button
+                        className="px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700"
+                        onClick={async () => {
+                          try { 
+                            await signOut(auth) 
+                          } finally {
+                            setConfirmOpen(false)
+                            setAccountOpen(false)
+                            setToast('Çıkış yapıldı')
+                            setTimeout(() => { 
+                              window.location.href = '/' 
+                            }, 900)
+                          }
+                        }}
+                      >
+                        Evet, çıkış yap
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {cartOpen && (
+                <div className="md:hidden px-4 py-2 border-b bg-white" onClick={(e) => e.stopPropagation()}>
+                  <div className="rounded-xl border border-slate-200 p-3">
+                    <p className="text-sm text-slate-700">Sepet özeti</p>
+                    {count > 0 ? (
+                      <p className="text-xs text-slate-500 mt-1">Sepette {count} ürün var.</p>
+                    ) : (
+                      <p className="text-xs text-slate-500 mt-1">Sepetiniz boş.</p>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="p-4 border-b bg-white">
                 <label className="relative block">
                   <span className="sr-only">Ara</span>
@@ -310,7 +500,12 @@ export default function Header() {
           </motion.div>
         )}
       </AnimatePresence>
-  </header>
-)
-
+      {/* Basit toast */}
+      {toast && (
+        <div className="fixed left-1/2 -translate-x-1/2 top-4 z-[10001] px-4 py-2 rounded-lg bg-slate-900 text-white text-sm shadow-lg">
+          {toast}
+        </div>
+      )}
+    </header>
+  )
 }
