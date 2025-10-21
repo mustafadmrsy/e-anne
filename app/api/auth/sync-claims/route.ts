@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { adminAuth } from '@/lib/firebaseAdmin'
+import { getAdminAuth } from '@/lib/firebaseAdmin'
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
   try {
@@ -7,6 +10,7 @@ export async function POST(request: Request) {
     if (!idToken) {
       return NextResponse.json({ error: 'missing idToken' }, { status: 400 })
     }
+    const adminAuth = getAdminAuth()
     const decoded = await adminAuth.verifyIdToken(idToken)
     const { uid, email_verified } = decoded
     if (!email_verified) {
