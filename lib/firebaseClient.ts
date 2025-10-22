@@ -12,6 +12,8 @@ const firebaseConfig = {
 }
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
+// DEBUG: Proje teyidi
+try { console.log('[firebase] projectId:', getApp().options.projectId) } catch {}
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)

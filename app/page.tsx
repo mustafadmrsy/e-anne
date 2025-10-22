@@ -1,4 +1,7 @@
 'use client'
+import { useEffect, useState } from 'react'
+import { getPageConfig } from '@/lib/siteConfig'
+import BlockRenderer from '@/components/site/BlockRenderer'
 import { ProductGrid } from '@/components/ProductGrid'
 import { products } from '@/lib/products'
 import Hero from '@/components/Hero'
@@ -6,6 +9,26 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 
 export default function HomePage() {
+  const [blocks, setBlocks] = useState<any[] | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    getPageConfig('home').then(p => {
+      if (!mounted) return
+      setBlocks(p.layout || [])
+    })
+    return () => { mounted = false }
+  }, [])
+
+  // Eğer builder'dan bir layout varsa onu göster; aksi halde mevcut statik anasayfayı göster
+  if (blocks && blocks.length > 0) {
+    return (
+      <main className="container-narrow py-6">
+        <BlockRenderer blocks={blocks} />
+      </main>
+    )
+  }
+
   return (
     <main className="bg-white text-secondary">
       {/* Hero */}

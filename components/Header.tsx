@@ -8,8 +8,9 @@ import AccountMenu from './AccountMenu'
 import { categories } from '@/lib/categories'
 import { useCart } from './CartProvider'
 import { motion, AnimatePresence } from 'framer-motion'
-import { auth } from '@/lib/firebaseClient'
+import { auth, db } from '@/lib/firebaseClient'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
+import { doc, onSnapshot } from 'firebase/firestore'
 
 export default function Header() {
   const router = useRouter()
@@ -28,6 +29,7 @@ export default function Header() {
   const [isAuthed, setIsAuthed] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     if (searchOpen) {
@@ -44,11 +46,40 @@ export default function Header() {
   }, [accountOpen])
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    let unsubDoc: (() => void) | null = null
+    let unsubAdmin: (() => void) | null = null
+    const unsubAuth = onAuthStateChanged(auth, (u) => {
       setDisplayName(u?.displayName ?? null)
       setIsAuthed(!!u)
+      if (unsubDoc) {
+        unsubDoc()
+        unsubDoc = null
+      }
+      if (unsubAdmin) {
+        unsubAdmin()
+        unsubAdmin = null
+      }
+      if (u) {
+        const ref = doc(db, 'users', u.uid)
+        unsubDoc = onSnapshot(ref, (snap) => {
+          const data = snap.data() as any
+          if (data && typeof data.fullName === 'string' && data.fullName.trim()) {
+            setDisplayName(data.fullName)
+          }
+        })
+        const adminRef = doc(db, 'admins', u.uid)
+        unsubAdmin = onSnapshot(adminRef, (snap) => {
+          setIsAdmin(snap.exists())
+        })
+      } else {
+        setIsAdmin(false)
+      }
     })
-    return () => unsub()
+    return () => {
+      unsubAuth()
+      if (unsubDoc) unsubDoc()
+      if (unsubAdmin) unsubAdmin()
+    }
   }, [])
 
   useEffect(() => {
@@ -223,6 +254,17 @@ export default function Header() {
                   <div className="p-2">
                     {isAuthed ? (
                       <>
+                        {isAdmin && (
+                          <Link
+                            href="/admin"
+                            className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
+                          >
+                            <span className="text-slate-500">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v4H3z"/><path d="M3 11h18v10H3z"/><path d="M7 11v10"/><path d="M17 11v10"/></svg>
+                            </span>
+                            <span>Admin Paneli</span>
+                          </Link>
+                        )}
                         <Link
                           href="/account"
                           className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"

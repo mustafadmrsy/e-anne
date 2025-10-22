@@ -2,8 +2,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { auth } from '@/lib/firebaseClient'
+import { auth, db } from '@/lib/firebaseClient'
 import { signInWithEmailAndPassword, signOut, getIdTokenResult } from 'firebase/auth'
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+
+const SUPERADMIN_UID = process.env.NEXT_PUBLIC_SUPERADMIN_UID || 'unOn6yl9HyQebMFRBA3znR9mq3I2'
+const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || process.env.NEXT_PUBLIC_SUPERADMIN_EMAIL || '').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean)
 
 export default function LoginForm() {
   const router = useRouter()
@@ -21,7 +25,20 @@ export default function LoginForm() {
       const u = cred.user
       const tokenResult = await getIdTokenResult(u, true)
       const verifiedClaim = (tokenResult.claims as any)?.verified
-      const isVerified = u.emailVerified || verifiedClaim === 1
+      const adminRef = doc(db, 'admins', u.uid)
+      let adminSnap = await getDoc(adminRef)
+      const emailIsAdmin = !!u.email && ADMIN_EMAILS.includes(u.email.toLowerCase())
+      if (!adminSnap.exists() && (emailIsAdmin || u.uid === SUPERADMIN_UID)) {
+        await setDoc(adminRef, {
+          email: u.email ?? null,
+          name: u.displayName ?? null,
+          role: 'admin',
+          createdAt: serverTimestamp(),
+        }, { merge: true })
+        adminSnap = await getDoc(adminRef)
+      }
+      const isAdmin = adminSnap.exists() || u.uid === SUPERADMIN_UID || emailIsAdmin
+      const isVerified = u.emailVerified || verifiedClaim === 1 || isAdmin
       if (!isVerified) {
         await signOut(auth)
         setError('E-posta doğrulanmamış. Lütfen e-postanı doğrula ve tekrar dene.')
