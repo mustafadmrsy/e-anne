@@ -30,6 +30,7 @@ export default function Header() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isSellerApproved, setIsSellerApproved] = useState(false)
 
   useEffect(() => {
     if (searchOpen) {
@@ -66,6 +67,8 @@ export default function Header() {
           if (data && typeof data.fullName === 'string' && data.fullName.trim()) {
             setDisplayName(data.fullName)
           }
+          const st = (data?.sellerStatus || null)
+          setIsSellerApproved(st === 'approved')
         })
         const adminRef = doc(db, 'admins', u.uid)
         unsubAdmin = onSnapshot(adminRef, (snap) => {
@@ -73,6 +76,7 @@ export default function Header() {
         })
       } else {
         setIsAdmin(false)
+        setIsSellerApproved(false)
       }
     })
     return () => {
@@ -254,6 +258,25 @@ export default function Header() {
                   <div className="p-2">
                     {isAuthed ? (
                       <>
+                        {isSellerApproved && (
+                          <>
+                            <Link
+                              href="/seller"
+                              className="mb-1 flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-50 text-slate-700"
+                            >
+                              <span className="text-slate-500">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>
+                              </span>
+                              <span>Satıcı Dashboard</span>
+                            </Link>
+                            <div className="grid grid-cols-2 gap-1 mb-2 px-3">
+                              <Link href="/seller/products" className="text-sm text-slate-700 hover:underline">Ürünler</Link>
+                              <Link href="/seller/orders" className="text-sm text-slate-700 hover:underline">Siparişler</Link>
+                              <Link href="/seller/notifications" className="text-sm text-slate-700 hover:underline">Bildirimler</Link>
+                              <Link href="/seller/profile" className="text-sm text-slate-700 hover:underline">Mağaza Profili</Link>
+                            </div>
+                          </>
+                        )}
                         {isAdmin && (
                           <Link
                             href="/admin"
@@ -445,6 +468,7 @@ export default function Header() {
                   isAuthed={isAuthed}
                   displayName={displayName}
                   onLogoutClick={() => setConfirmOpen(true)}
+                  sellerApproved={isSellerApproved}
                   onNavigate={(href) => {
                     router.push(href)
                     // Fallback for some mobile browsers

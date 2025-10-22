@@ -10,9 +10,10 @@ type Props = {
   displayName: string | null
   onLogoutClick: () => void
   onNavigate?: (href: string) => void
+  sellerApproved?: boolean
 }
 
-export default function AccountMenu({ variant, isAuthed, displayName, onLogoutClick, onNavigate }: Props) {
+export default function AccountMenu({ variant, isAuthed, displayName, onLogoutClick, onNavigate, sellerApproved }: Props) {
   const stopProps =
     variant === "mobile"
       ? {
@@ -36,6 +37,28 @@ export default function AccountMenu({ variant, isAuthed, displayName, onLogoutCl
         <div className="p-2">
           {isAuthed ? (
             <>
+              {sellerApproved && (
+                <div className="mb-2">
+                  <Link
+                    href="/seller"
+                    className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50 text-slate-700"
+                    onClick={(e) => { e.preventDefault(); onNavigate?.("/seller") }}
+                    onTouchEnd={(e) => { e.preventDefault(); onNavigate?.("/seller") }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <span className="text-slate-500">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>
+                    </span>
+                    <span>Satıcı Dashboard</span>
+                  </Link>
+                  <div className="grid grid-cols-2 gap-1 px-3 mt-1">
+                    <Link href="/seller/products" className="text-sm text-slate-700 hover:underline" onClick={(e)=>{e.preventDefault(); onNavigate?.("/seller/products")}} onTouchEnd={(e)=>{e.preventDefault(); onNavigate?.("/seller/products")}}>Ürünler</Link>
+                    <Link href="/seller/orders" className="text-sm text-slate-700 hover:underline" onClick={(e)=>{e.preventDefault(); onNavigate?.("/seller/orders")}} onTouchEnd={(e)=>{e.preventDefault(); onNavigate?.("/seller/orders")}}>Siparişler</Link>
+                    <Link href="/seller/notifications" className="text-sm text-slate-700 hover:underline" onClick={(e)=>{e.preventDefault(); onNavigate?.("/seller/notifications")}} onTouchEnd={(e)=>{e.preventDefault(); onNavigate?.("/seller/notifications")}}>Bildirimler</Link>
+                    <Link href="/seller/profile" className="text-sm text-slate-700 hover:underline" onClick={(e)=>{e.preventDefault(); onNavigate?.("/seller/profile")}} onTouchEnd={(e)=>{e.preventDefault(); onNavigate?.("/seller/profile")}}>Profil</Link>
+                  </div>
+                </div>
+              )}
               <Link
                 href="/account"
                 className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-slate-50 text-slate-700"
