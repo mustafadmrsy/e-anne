@@ -1,0 +1,21 @@
+{
+  "name": "e-anne-functions",
+  "version": "1.0.0",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": { "node": "18" },
+  "scripts": {
+    "build": "tsc -p .",
+    "clean": "rimraf lib",
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.5.0",
+    "firebase-functions": "^4.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "rimraf": "^6.0.1"
+  }
+}

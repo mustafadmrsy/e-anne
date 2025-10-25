@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { auth, db } from "@/lib/firebaseClient"
 import { onAuthStateChanged } from "firebase/auth"
-import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from "firebase/firestore"
+import { collection, deleteDoc, doc, getDocs, orderBy, query } from "firebase/firestore"
 
 type Product = {
   id: string
@@ -14,12 +14,14 @@ type Product = {
   sku?: string
   status?: "active" | "inactive"
   createdAt?: any
+  category?: string
 }
 
 export default function Page() {
   const [uid, setUid] = useState<string | null>(null)
   const [items, setItems] = useState<Product[]>([])
   const [qtext, setQtext] = useState("")
+  const [cat, setCat] = useState<string>("all")
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -42,6 +44,7 @@ export default function Page() {
             sku: data.sku || undefined,
             status: data.status || "active",
             createdAt: data.createdAt,
+            category: data.category || undefined,
           })
         })
         setItems(arr)
@@ -52,8 +55,15 @@ export default function Page() {
 
   const filtered = useMemo(() => {
     const t = qtext.trim().toLowerCase()
-    return t ? items.filter(p => (p.name||"").toLowerCase().includes(t) || (p.sku||"").toLowerCase().includes(t)) : items
-  }, [items, qtext])
+    const base = t ? items.filter(p => (p.name||"").toLowerCase().includes(t) || (p.sku||"").toLowerCase().includes(t)) : items
+    return cat === "all" ? base : base.filter(p => (p.category||"") === cat)
+  }, [items, qtext, cat])
+
+  const categories = useMemo(() => {
+    const set = new Set<string>()
+    items.forEach(p => { if (p.category) set.add(p.category) })
+    return Array.from(set)
+  }, [items])
 
   const remove = async (id: string) => {
     if (!uid) return
@@ -71,6 +81,12 @@ export default function Page() {
         <h1 className="text-xl sm:text-2xl font-semibold">Ürünler</h1>
         <div className="flex items-center gap-2">
           <input value={qtext} onChange={(e)=>setQtext(e.target.value)} placeholder="Ara (ad/sku)" className="rounded-lg border px-3 py-2 text-sm" />
+          <select value={cat} onChange={(e)=>setCat(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+            <option value="all">Tüm Kategoriler</option>
+            {categories.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           <Link href="/seller/add-product" className="rounded-lg bg-brand text-white px-3 py-2 text-sm">Ürün Ekle</Link>
         </div>
       </div>

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useCart } from "@/components/CartProvider"
 import { auth, db } from "@/lib/firebaseClient"
-import { onAuthStateChanged } from "firebase/auth"
+import { onAuthStateChanged, getIdToken } from "firebase/auth"
 import { collection, getDocs, doc, addDoc, updateDoc, serverTimestamp } from "firebase/firestore"
 
 type Address = { id?: string; title: string; line1: string; city: string; district: string; zip: string; phone?: string }
@@ -76,18 +76,27 @@ export default function CartPage() {
     const addr = addresses.find((a) => a.id === selectedAddrId) || null
     const orderNo = `EA-${Date.now()}`
     try {
-      await addDoc(collection(db, "users", uid, "orders"), {
-        orderNo,
-        status: "hazırlanıyor",
-        createdAt: serverTimestamp(),
-        items: items.map((it) => ({ slug: it.slug, name: it.name, image: it.image, price: it.price, qty: it.qty })),
-        totals: { subtotal: total, discount, shipping: items.length > 0 ? shippingFee : 0, payable },
-        shippingMethod: shipping,
-        paymentMethod: payment,
-        address: addr ? { ...addr } : null,
-        coupon: coupon || null,
-        trackingUrl: null
+      const user = auth.currentUser
+      if (!user) return
+      const token = await getIdToken(user)
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          orderNo,
+          status: 'hazırlanıyor',
+          items: items.map((it) => ({ slug: it.slug, name: it.name, image: it.image, price: it.price, qty: it.qty })),
+          totals: { subtotal: total, discount, shipping: items.length > 0 ? shippingFee : 0, payable },
+          shippingMethod: shipping,
+          paymentMethod: payment,
+          address: addr ? { ...addr } : null,
+          coupon: coupon || null
+        })
       })
+      if (!res.ok) return
       clear()
       router.push("/orders")
     } catch {}

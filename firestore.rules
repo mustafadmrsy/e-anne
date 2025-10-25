@@ -1,0 +1,197 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+    function isAdminByDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function isAnyAdmin() {
+      return isAdmin() || isAdminByDoc();
+    }
+    // Kullanıcının satıcı onay durumunu kontrol et (users belgesindeki sellerStatus)
+    function isApprovedSeller(uid) {
+      return isOwner(uid) &&
+             get(/databases/$(database)/documents/users/$(uid)).data.sellerStatus == 'approved';
+    }
+
+    // users
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAnyAdmin();
+      allow create, update, delete: if isOwner(uid);
+
+      match /addresses/{addressId} {
+        allow read: if isOwner(uid) || isAnyAdmin();
+        allow create, update, delete: if isOwner(uid);
+      }
+
+      match /orders/{orderId} {
+        allow read: if isOwner(uid) || isAnyAdmin();
+        allow create, update, delete: if isOwner(uid);
+      }
+    }
+
+    // Top-level addresses (kullanmıyorsan kapalı tut)
+    match /addresses/{docId} {
+      allow read, create, update, delete: if isAnyAdmin();
+    }
+
+    // sellers (satıcı profil belgeleri)
+    match /sellers/{uid} {
+      // Onaylı satıcı profilleri herkesçe okunabilir; aksi halde sadece sahibi veya admin
+      allow read: if (get(/databases/$(database)/documents/users/$(uid)).data.sellerStatus == 'approved')
+                  || isOwner(uid) || isAnyAdmin();
+
+      // Kayıt oluşturma: sadece kendi adına
+      allow create: if isOwner(uid);
+
+      // Satıcı kendi belgesini güncelleyebilir fakat onay alanlarına dokunamaz
+      allow update: if isOwner(uid) &&
+        request.resource.data.status == resource.data.status &&
+        request.resource.data.approvedAt == resource.data.approvedAt &&
+        request.resource.data.approvedBy == resource.data.approvedBy &&
+        request.resource.data.sellerStatus == resource.data.sellerStatus;
+
+      // Admin her şeyi güncelleyip silebilir
+      allow update, delete: if isAnyAdmin();
+
+      // sellers/{uid}/products
+      match /products/{productId} {
+        // Herkes aktif ürünleri okuyabilir; satıcı ve admin tüm ürünleri okuyabilir
+        allow read: if resource.data.status == 'active' || isOwner(uid) || isAnyAdmin();
+
+        // Oluşturma: sadece onaylı satıcı kendi path'inde
+        allow create: if isApprovedSeller(uid);
+
+        // Güncelleme/Silme: sadece ilgili satıcı ya da admin
+        allow update, delete: if isOwner(uid) || isAnyAdmin();
+      }
+
+      // sellers/{uid}/orders — satıcının taraf sipariş kayıtları (fan-out sonucu)
+      match /orders/{orderId} {
+        // Görüntüleme: sadece satıcı sahibi veya admin
+        allow read: if isOwner(uid) || isAnyAdmin();
+
+        // Oluşturma: sadece admin (Cloud Function veya panel)
+        allow create: if isAnyAdmin();
+
+        // Güncelleme: satıcı sadece belirli alanları değiştirebilir (durum/kargo)
+        allow update: if (
+          isAnyAdmin() || (
+            isOwner(uid) &&
+            request.resource.data.status == resource.data.status ||
+            request.resource.data.trackingNumber == resource.data.trackingNumber ||
+            request.resource.data.trackingUrl == resource.data.trackingUrl ||
+            request.resource.data.notes == resource.data.notes ||
+            request.resource.data.updatedAt == resource.data.updatedAt
+          )
+        ) &&
+        // Satıcı kritik alanlara dokunamaz (miktar, kalemler, müşteri, toplam vb.)
+        request.resource.data.amount == resource.data.amount &&
+        request.resource.data.items == resource.data.items &&
+        request.resource.data.buyerId == resource.data.buyerId &&
+        request.resource.data.createdAt == resource.data.createdAt;
+
+        // Silme: sadece admin
+        allow delete: if isAnyAdmin();
+      }
+
+      // (Opsiyonel) sellers/{uid}/messages
+      match /messages/{messageId} {
+        // Satıcı kendi mesajlarını görebilir; admin de görebilir
+        allow read: if isOwner(uid) || isAnyAdmin();
+        // Mesaj oluşturma: oturum açmış herkes satıcıya mesaj yazabilsin istiyorsanız açık
+        allow create: if isSignedIn();
+        // Güncelleme/Silme: sadece satıcı (okundu işareti vb.) ya da admin
+        allow update, delete: if isOwner(uid) || isAnyAdmin();
+      }
+
+      // (Opsiyonel) sellers/{uid}/payouts
+      match /payouts/{payoutId} {
+        allow read: if isOwner(uid) || isAnyAdmin();
+        // Ödemeler genellikle sistem/admin tarafından oluşturulur
+        allow create, update, delete: if isAnyAdmin();
+      }
+    }
+
+    // admins — sadece admin yazabilir (self-assign engeli)
+    match /admins/{uid} {
+      allow read: if isAnyAdmin() || isOwner(uid);
+      allow create, update, delete: if isAnyAdmin();
+      // İstersen bootstrap için süper admin UID ekleyebilirsin:
+      // allow create: if isSignedIn() && request.auth.uid == 'unOn6yl9HyQebMFRBA3znR9mq3I2';
+    }
+
+    // site (builder/ayarlar/ödemeler)
+    match /site/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // products (global katalog kullanıyorsanız)
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // collections
+    match /collections/{collectionId} {
+      allow read: if true;
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // banners / promotions
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow create, update, delete: if isAnyAdmin();
+    }
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // coupons — checkout'ta istemci okuması için read açık
+    match /coupons/{id} {
+      allow read: if true;
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // notifications — public olanlar herkese; diğerleri admin
+    match /notifications/{id} {
+      allow read: if resource.data.visible == true || isAnyAdmin();
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // blocked_ips
+    match /blocked_ips/{id} {
+      allow read, create, update, delete: if isAnyAdmin();
+    }
+
+    // logs
+    match /logs/{id} {
+      allow read: if isAnyAdmin();
+      allow create, update, delete: if isAnyAdmin();
+    }
+
+    // ürün yorumları
+    match /reviews/{id} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAnyAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+  }
+}

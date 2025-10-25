@@ -1,15 +1,15 @@
-'use client'
+"use client"
 import { useEffect, useState } from 'react'
 import { getPageConfig } from '@/lib/siteConfig'
 import BlockRenderer from '@/components/site/BlockRenderer'
-import { ProductGrid } from '@/components/ProductGrid'
-import { products } from '@/lib/products'
 import Hero from '@/components/Hero'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { ProductGrid } from '@/components/ProductGrid'
 
 export default function HomePage() {
   const [blocks, setBlocks] = useState<any[] | null>(null)
+  const [products, setProducts] = useState<any[]>([])
 
   useEffect(() => {
     let mounted = true
@@ -18,6 +18,15 @@ export default function HomePage() {
       setBlocks(p.layout || [])
     })
     return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/products?limit=24').then(r=>r.json()).then(d=>{
+      if (!alive) return
+      if (d?.ok) setProducts(d.items || [])
+    }).catch(()=>{})
+    return () => { alive = false }
   }, [])
 
   // Eğer builder'dan bir layout varsa onu göster; aksi halde mevcut statik anasayfayı göster
@@ -72,14 +81,21 @@ export default function HomePage() {
           </motion.div>
         </div>
 
-        {/* Ürün Grid */}
+        {/* Ürün Grid (Firestore'dan gerçek ürünler) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
           className="mt-10"
         >
-          <ProductGrid products={products} />
+          <ProductGrid products={products.map(p => ({
+            slug: p.slug,
+            name: p.name,
+            price: p.price,
+            image: p.image,
+            sellerName: p.sellerName,
+            rating: p.rating,
+          }))} />
         </motion.div>
       </section>
 

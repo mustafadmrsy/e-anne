@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { auth, db } from "@/lib/firebaseClient"
-import { onAuthStateChanged } from "firebase/auth"
+import { onAuthStateChanged, getIdToken } from "firebase/auth"
 import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore"
 
 export default function Page() {
@@ -23,6 +23,9 @@ export default function Page() {
   const [stock, setStock] = useState("")
   const [status, setStatus] = useState<"active"|"inactive">("active")
   const [imageUrl, setImageUrl] = useState("")
+  const [slug, setSlug] = useState("")
+  const [category, setCategory] = useState("")
+  const [categories, setCategories] = useState<{id:string;name:string}[]>([])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -38,7 +41,9 @@ export default function Page() {
             setPrice(String(data.price ?? ""))
             setStock(String(data.stock ?? ""))
             setStatus((data.status as any) || "active")
-            setImageUrl(data.imageUrl || "")
+            setImageUrl(data.image || data.imageUrl || "")
+            setSlug((data.slugNormalized as string) || data.slug || "")
+            setCategory(data.category || "")
           }
         } finally { setLoading(false) }
       }
@@ -46,34 +51,97 @@ export default function Page() {
     return () => unsub()
   }, [router, editId])
 
+  useEffect(() => {
+    let alive = true
+    fetch('/api/categories').then(r=>r.json()).then(d=>{
+      if (!alive) return
+      if (d?.ok) setCategories((d.items||[]).map((x:any)=>({id:x.id,name:x.name||x.title||x.id})))
+    }).catch(()=>{})
+    return () => { alive = false }
+  }, [])
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!uid) return
     setError(null)
     setSuccess(null)
     if (!name.trim()) { setError("Ürün adı zorunludur."); return }
+    const toSlug = (s: string) => s
+      .toLowerCase()
+      .trim()
+      .replace(/[çÇ]/g, 'c')
+      .replace(/[ğĞ]/g, 'g')
+      .replace(/[ıİ]/g, 'i')
+      .replace(/[öÖ]/g, 'o')
+      .replace(/[şŞ]/g, 's')
+      .replace(/[üÜ]/g, 'u')
+      .replace(/[^a-z0-9-\s]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+    const finalSlug = toSlug(slug || name)
+    if (!finalSlug) { setError('Geçerli bir slug üretilemedi.'); return }
     const p = parseFloat(price)
     const s = parseInt(stock || "0", 10)
     if (isNaN(p) || p < 0) { setError("Geçerli bir fiyat girin."); return }
     if (isNaN(s) || s < 0) { setError("Geçerli bir stok girin."); return }
+    if (!category || category.trim().length < 2) { setError("Geçerli bir kategori seçin."); return }
+    const url = imageUrl.trim()
+    if (!url) { setError("Görsel URL zorunludur."); return }
+    if (/google\.com\/search/i.test(url)) { setError("Lütfen doğrudan görsel URL'si kullanın (Google arama linki değil)."); return }
+    if (!/^https?:\/\//i.test(url)) { setError("Görsel URL http/https ile başlamalıdır."); return }
     setSaving(true)
     try {
       const data = {
         name: name.trim(),
         sku: sku.trim() || null,
-        price: p,
-        stock: s,
-        status,
-        imageUrl: imageUrl.trim() || null,
+        price: Math.max(0, p),
+        stock: Math.max(0, Math.floor(s)),
+        status: status === 'inactive' ? 'inactive' : 'active',
+        image: url,
+        slug: finalSlug,
+        slugNormalized: finalSlug,
+        category,
         updatedAt: serverTimestamp(),
       }
       if (editId) {
         await updateDoc(doc(db, "sellers", uid, "products", editId), data as any)
+        // catalog index upsert via API
+        const token = await getIdToken(auth.currentUser!)
+        await fetch('/api/catalog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            slug: finalSlug,
+            sellerId: uid,
+            productId: editId,
+            path: `sellers/${uid}/products/${editId}`,
+            name: data.name,
+            price: data.price,
+            image: data.image,
+            category: data.category,
+          })
+        })
         setSuccess("Ürün güncellendi.")
       } else {
-        await addDoc(collection(db, "sellers", uid, "products"), {
+        const created = await addDoc(collection(db, "sellers", uid, "products"), {
           ...data,
           createdAt: serverTimestamp(),
+        })
+        // catalog index upsert via API
+        const token = await getIdToken(auth.currentUser!)
+        await fetch('/api/catalog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            slug: finalSlug,
+            sellerId: uid,
+            productId: created.id,
+            path: `sellers/${uid}/products/${created.id}`,
+            name: data.name,
+            price: data.price,
+            image: data.image,
+            category: data.category,
+          })
         })
         setSuccess("Ürün eklendi.")
       }
@@ -92,7 +160,29 @@ export default function Page() {
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="block text-xs text-slate-700 mb-1">Ürün Adı</label>
-              <input value={name} onChange={(e)=>setName(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
+              <input value={name} onChange={(e)=>{
+                const v = e.target.value
+                setName(v)
+                if (!slug) {
+                  const s = v
+                    .toLowerCase()
+                    .trim()
+                    .replace(/[çÇ]/g, 'c')
+                    .replace(/[ğĞ]/g, 'g')
+                    .replace(/[ıİ]/g, 'i')
+                    .replace(/[öÖ]/g, 'o')
+                    .replace(/[şŞ]/g, 's')
+                    .replace(/[üÜ]/g, 'u')
+                    .replace(/[^a-z0-9-\s]/g, '')
+                    .replace(/\s+/g, '-')
+                    .replace(/-+/g, '-')
+                  setSlug(s)
+                }
+              }} className="w-full rounded-lg border px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-700 mb-1">Slug</label>
+              <input value={slug} onChange={(e)=>setSlug(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="ornek-urun" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -116,6 +206,15 @@ export default function Page() {
                 <label className="block text-xs text-slate-700 mb-1">Stok</label>
                 <input type="number" value={stock} onChange={(e)=>setStock(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm" />
               </div>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-700 mb-1">Kategori</label>
+              <select value={category} onChange={(e)=>setCategory(e.target.value)} className="w-full rounded-lg border px-3 py-2 text-sm">
+                <option value="">Seçin</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs text-slate-700 mb-1">Görsel URL</label>

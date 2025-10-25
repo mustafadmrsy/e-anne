@@ -45,7 +45,6 @@ function AdminTopBar() {
             <span className="h-2.5 w-2.5 rounded-full bg-blue-400/80"></span>
             <span className="text-sm text-slate-300">Yönetim Paneli</span>
           </div>
-          <div className="text-xs text-slate-400">Siyah & Beyaz • Vivid Blue (muted)</div>
         </div>
       </header>
 

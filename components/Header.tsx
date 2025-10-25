@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react'
 import { CartIcon, UserIcon, SearchIcon, MenuIcon, CloseIcon } from './icons'
 import AccountTrigger from './AccountTrigger'
 import AccountMenu from './AccountMenu'
-import { categories } from '@/lib/categories'
 import { useCart } from './CartProvider'
 import { motion, AnimatePresence } from 'framer-motion'
 import { auth, db } from '@/lib/firebaseClient'
@@ -31,6 +30,7 @@ export default function Header() {
   const [toast, setToast] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isSellerApproved, setIsSellerApproved] = useState(false)
+  const [cats, setCats] = useState<{slug:string; name:string}[]>([])
 
   useEffect(() => {
     if (searchOpen) {
@@ -123,6 +123,19 @@ export default function Header() {
     }
   }, [toast])
 
+  // Kategorileri API'den çek
+  useEffect(() => {
+    let alive = true
+    fetch('/api/categories').then(r=>r.json()).then(d=>{
+      if (!alive) return
+      if (d?.ok) {
+        const list = (d.items||[]).map((x:any)=>({ slug: x.id, name: x.name || x.title || x.id }))
+        setCats(list)
+      }
+    }).catch(()=>{})
+    return () => { alive = false }
+  }, [])
+
   return (
     <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b">
       <div className="container-narrow h-16 md:h-20 flex items-center justify-between gap-4">
@@ -165,7 +178,7 @@ export default function Header() {
             </Link>
             {catOpen && (
               <div className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-slate-200 bg-white shadow-lg p-2">
-                {categories.map((c) => (
+                {cats.map((c) => (
                   <Link
                     key={c.slug}
                     href={`/category/${c.slug}`}
@@ -469,6 +482,7 @@ export default function Header() {
                   displayName={displayName}
                   onLogoutClick={() => setConfirmOpen(true)}
                   sellerApproved={isSellerApproved}
+                  isAdmin={isAdmin}
                   onNavigate={(href) => {
                     router.push(href)
                     // Fallback for some mobile browsers
