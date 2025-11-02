@@ -8,6 +8,7 @@ export default function AdminSidebar({ onNavigate }: { onNavigate?: () => void }
     { href: "/admin/sellers", label: "Satıcı Başvuruları" },
     { href: "/admin/site", label: "Site Yönetimi" },
     { href: "/admin/products", label: "Ürünler" },
+    { href: "/admin/posts", label: "Blog Yazıları" },
   ]
   return (
     <nav className="px-2 space-y-1">

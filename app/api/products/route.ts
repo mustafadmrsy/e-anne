@@ -155,7 +155,7 @@ export async function GET(req: NextRequest) {
       let sellerName: string | undefined
       try {
         const s = await sellerRef?.get()
-        sellerName = s?.get('name') || undefined
+        sellerName = s?.get('name') || s?.get('storeName') || undefined
       } catch {}
       return {
         id: d.id,

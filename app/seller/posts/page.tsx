@@ -1,11 +1,9 @@
 "use client"
-
 import { useEffect, useState } from "react"
-import { auth, storage } from "@/lib/firebaseClient"
+import { auth } from "@/lib/firebaseClient"
 import { onAuthStateChanged, getIdToken } from "firebase/auth"
-// B2 presigned upload kullanılacak; Firebase Storage import'u kaldırıldı
 
-export default function AdminPostsPage() {
+export default function SellerPostsPage() {
   const [uid, setUid] = useState<string | null>(null)
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
@@ -85,30 +83,28 @@ export default function AdminPostsPage() {
     try {
       setSaving(true)
       const token = await getIdToken(auth.currentUser!)
-      const res = await fetch('/api/admin/posts', {
+      const res = await fetch('/api/seller/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ title, content, coverImage: coverImage.trim() || null, contentImage: contentImage.trim() || null, category: category.trim() || null, status })
       })
-      if (!res.ok) {
-        const j = await res.json().catch(()=>({}))
-        throw new Error(j?.error || 'fail')
-      }
+      const j = await res.json().catch(()=>({}))
+      if (!res.ok || !j?.ok) throw new Error(j?.error || 'fail')
       setSuccess("Yazı kaydedildi.")
       setTitle(""); setContent(""); setCoverImage(""); setContentImage(""); setCategory(""); setStatus("published")
-    } catch {
-      setError("Kaydetme başarısız veya yetki yok (admin)")
+    } catch (e: any) {
+      setError("Kaydetme başarısız veya yetki yok (onaylı satıcı)")
     } finally { setSaving(false) }
   }
 
   return (
     <main className="container-narrow py-8">
-      <h1 className="text-2xl font-bold text-slate-800">Blog Yazıları</h1>
+      <h1 className="text-2xl font-bold text-slate-800">Satıcı Blog Yazıları</h1>
 
       <section className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-semibold">Yeni Yazı</h2>
-        {error && <div className="mt-2 rounded-lg border border-red-800 bg-red-900/20 text-red-100 px-3 py-2 text-sm">{error}</div>}
-        {success && <div className="mt-2 rounded-lg border border-emerald-800 bg-emerald-900/20 text-emerald-100 px-3 py-2 text-sm">{success}</div>}
+        {error && <div className="mt-2 rounded-lg border border-red-800 bg-red-900/10 text-red-800 px-3 py-2 text-sm">{error}</div>}
+        {success && <div className="mt-2 rounded-lg border border-emerald-800 bg-emerald-50 text-emerald-900 px-3 py-2 text-sm">{success}</div>}
         <form onSubmit={submit} className="mt-3 grid grid-cols-1 gap-3">
           <div>
             <label className="block text-xs text-slate-500 mb-1">Başlık</label>
@@ -171,7 +167,7 @@ export default function AdminPostsPage() {
               </div>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 mt-3">
             <button disabled={saving} className="rounded-lg bg-secondary px-4 py-2 text-white text-sm disabled:opacity-50">Kaydet</button>
           </div>
         </form>

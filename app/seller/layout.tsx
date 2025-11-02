@@ -18,6 +18,7 @@ export default function SellerLayout({ children }: { children: ReactNode }) {
               <Link href="/seller/payouts" className="block rounded-lg px-3 py-2 hover:bg-slate-50">Finans / Ödemeler</Link>
               <Link href="/seller/reviews" className="block rounded-lg px-3 py-2 hover:bg-slate-50">Yorumlar</Link>
               <Link href="/seller/settings" className="block rounded-lg px-3 py-2 hover:bg-slate-50">Ayarlar</Link>
+              <Link href="/seller/posts" className="block rounded-lg px-3 py-2 hover:bg-slate-50">Blog Yazıları</Link>
             </nav>
           </aside>
           <main className="md:col-span-9 lg:col-span-10">{children}</main>

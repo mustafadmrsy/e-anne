@@ -197,6 +197,12 @@ export default function Header() {
             Kampanyalar
           </Link>
           <Link
+            href="/blog"
+            className="text-slate-700 hover:text-brand border-b-2 border-transparent hover:border-brand transition"
+          >
+            Blog Yazıları
+          </Link>
+          <Link
             href="/about"
             className="text-slate-700 hover:text-brand border-b-2 border-transparent hover:border-brand transition"
           >
@@ -567,6 +573,13 @@ export default function Header() {
                   onClick={() => setOpen(false)}
                 >
                   Kampanyalar
+                </Link>
+                <Link
+                  href="/blog"
+                  className="px-4 py-3 rounded-lg text-slate-700 hover:bg-slate-50 active:bg-slate-100 text-base"
+                  onClick={() => setOpen(false)}
+                >
+                  Blog Yazıları
                 </Link>
                 <Link
                   href="/about"

@@ -10,18 +10,13 @@ export async function POST(req: NextRequest) {
     const auth = getAdminAuth()
     const db = getAdminDB()
     const decoded = await auth.verifyIdToken(token)
-
-    // admin kontrolü: custom claim veya admins/{uid}
-    const isAdmin = (decoded as any).admin === true
     const uid = decoded.uid
-    let allowed = isAdmin
-    if (!allowed) {
-      try {
-        const a = await db.collection('admins').doc(uid).get()
-        allowed = a.exists
-      } catch {}
-    }
-    if (!allowed) return NextResponse.json({ ok: false, error: 'auth/not-admin' }, { status: 403 })
+
+    // Check approved seller status from users/{uid}
+    const userSnap = await db.collection('users').doc(uid).get()
+    const sellerStatus = userSnap.get('sellerStatus')
+    const isApprovedSeller = sellerStatus === 'approved'
+    if (!isApprovedSeller) return NextResponse.json({ ok: false, error: 'auth/not-approved-seller' }, { status: 403 })
 
     const body = await req.json()
     const { title, content, image, coverImage, contentImage, category, status } = body || {}
@@ -37,7 +32,7 @@ export async function POST(req: NextRequest) {
       category: category ? String(category) : null,
       status: status === 'published' ? 'published' : 'draft',
       authorId: uid,
-      authorRole: 'admin',
+      authorRole: 'seller',
       createdAt: now,
       updatedAt: now,
     })

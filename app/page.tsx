@@ -54,70 +54,52 @@ export default function HomePage() {
         {/* Arka plan blur bloblar */}
         <div aria-hidden className="pointer-events-none absolute -top-32 -left-24 h-80 w-80 rounded-full bg-secondary/10 blur-3xl" />
         <div aria-hidden className="pointer-events-none absolute top-10 -right-24 h-96 w-96 rounded-full bg-cyan-400/10 blur-3xl" />
-        <div className="container-narrow py-10 sm:py-16 relative">
+        {/* Tüm alanı kaplayan arka plan */}
+        <div
+          aria-hidden
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(/background/eriste-background.jpg)`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        {/* Okunabilirlik için hafif karartma gradient */}
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/30 via-black/20 to-transparent" />
+        <div className="container-narrow py-10 sm:py-16 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-7">
               <motion.h1
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="text-3xl sm:text-5xl font-extrabold leading-tight"
+                className="text-3xl sm:text-5xl font-extrabold leading-tight text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
               >
                 Annemin Eriştesi ve Doğal Ürünleri
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.1 }}
-                className="mt-3 text-slate-600 text-lg"
+                transition={{ duration: 0.6 }}
+                className="mt-3 text-white/90 text-lg drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]"
               >
                 Ev yapımı, katkısız ve sevgiyle hazırlanan ürünler. Tazelik ve lezzeti kapına getiriyoruz.
               </motion.p>
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.15 }}
-                className="mt-6 flex flex-col sm:flex-row gap-3"
-              >
-                <Link href="#urunler" className="inline-flex items-center justify-center rounded-2xl bg-secondary px-6 py-3 text-white font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all">
-                  Ürünleri Keşfet
-                </Link>
-                <Link href="#hikaye" className="inline-flex items-center justify-center rounded-2xl border px-6 py-3 font-semibold text-secondary hover:bg-slate-50">
-                  Hikayemiz
-                </Link>
-              </motion.div>
+              <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                <Link href="#urunler" className="inline-flex items-center justify-center rounded-2xl bg-secondary px-6 py-3 text-white font-semibold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all">Ürünleri Keşfet</Link>
+                <Link href="#hikaye" className="inline-flex items-center justify-center rounded-2xl border border-white px-6 py-3 font-semibold text-white hover:bg-white/10">Hikayemiz</Link>
+              </div>
               {/* Güven rozetleri */}
               <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {[{t:'Katkısız',d:'Ev yapımı'}, {t:'Güvenli Paket',d:'Tazelik garantisi'}, {t:'Hızlı Teslim',d:'Türkiye geneli'}].map((b,i)=> (
-                  <div key={i} className="rounded-xl border p-3">
-                    <div className="text-sm font-semibold">{b.t}</div>
-                    <div className="text-xs text-slate-500">{b.d}</div>
+                  <div key={i} className="rounded-xl border border-white/30 bg-white/10 backdrop-blur p-3">
+                    <div className="text-sm font-semibold text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]">{b.t}</div>
+                    <div className="text-xs text-white/80">{b.d}</div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="lg:col-span-5">
-              <div className="rounded-3xl border bg-gradient-to-br from-amber-50 to-rose-50 p-3 sm:p-4">
-                <div
-                  className="aspect-[4/3] rounded-2xl overflow-hidden"
-                  style={{
-                    backgroundImage: `url(${products[0]?.image || 'https://i.nefisyemektarifleri.com/2022/02/28/tam-olculu-eriste-makarna-tarifi.jpg'})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }}
-                >
-                  <div className="h-full w-full backdrop-blur-[1px] bg-white/5" />
-                </div>
-              </div>
-              {/* Dönen rozet */}
-              <div className="hidden sm:block absolute right-4 bottom-4">
-                <div className="relative h-20 w-20">
-                  <div className="absolute inset-0 rounded-full border-2 border-dashed border-amber-300 animate-spin" style={{ animationDuration: '18s' }} />
-                  <div className="absolute inset-2 rounded-full border border-amber-200/70" />
-                  <div className="absolute inset-0 flex items-center justify-center text-sm">🍜</div>
-                </div>
-              </div>
-            </div>
+            {/* Sağ sütun görsel kart kaldırıldı; arka plan tüm alanı kaplıyor */}
           </div>
         </div>
       </section>
@@ -133,53 +115,45 @@ export default function HomePage() {
       <section id="hikaye" className="border-t border-slate-200 bg-slate-50/50 relative overflow-hidden">
         {/* Yumuşak blob */}
         <div aria-hidden className="pointer-events-none absolute -bottom-24 right-0 h-72 w-72 rounded-full bg-rose-300/10 blur-3xl" />
-        <div className="container-narrow py-12">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
-            <div className="md:col-span-5 order-2 md:order-1">
-              <div className="rounded-2xl border bg-white p-3">
-                <div className="aspect-square rounded-xl overflow-hidden">
-                  <div
-                    className="h-full w-full"
-                    style={{
-                      backgroundImage: `url(${products[1]?.image || products[2]?.image || 'https://i.nefisyemektarifleri.com/2022/02/28/tam-olculu-eriste-makarna-tarifi.jpg'})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                  />
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {[products[3]?.image, products[4]?.image].map((src, idx) => (
-                    <div key={idx} className="aspect-[4/3] rounded-lg overflow-hidden">
-                      <div
-                        className="h-full w-full"
-                        style={{
-                          backgroundImage: `url(${src || 'https://picsum.photos/seed/eri/400/300'})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                        }}
-                      />
-                    </div>
-                  ))}
+        <div className="container-narrow py-8">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            {/* Sol: Alıntı kartı */}
+            <div className="md:col-span-7">
+              <div className="rounded-3xl border bg-white p-6 sm:p-8">
+                <div className="text-5xl leading-none text-secondary mb-3">“</div>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-800">Ev tadında, katkısız ve içten lezzetler</h3>
+                <p className="mt-2 text-slate-600 text-sm sm:text-base">
+                  Küçük partilerde, aynı mutfak disipliniyle; bugün yoğurup yarın kurutuyor, tazeliği bozmadan paketliyoruz.
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center">🥣</div>
+                  <div>
+                    <div className="text-sm font-semibold text-slate-800">Özlem Anne</div>
+                    <div className="text-xs text-slate-500">Kurucu • 2016'dan beri</div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="md:col-span-7 order-1 md:order-2">
-              <motion.h2 initial={{opacity:0,y:10}} whileInView={{opacity:1,y:0}} transition={{duration:0.6}} className="text-2xl sm:text-3xl font-bold">
-                Annemin mutfağından sofralara
-              </motion.h2>
-              <motion.p initial={{opacity:0,y:10}} whileInView={{opacity:1,y:0}} transition={{duration:0.7,delay:0.1}} className="mt-3 text-slate-600">
-                Her bir ürün, geleneksel tariflerle ve özenle hazırlanır. Malzemelerimizi titizlikle seçiyor, küçük partilerde üretiyor ve taptaze gönderiyoruz.
-              </motion.p>
-              {/* Checklist */}
-              <ul className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                {["Doğal içerik", "Hijyenik üretim", "Yerel malzeme", "Taze gönderim", "Lezzet garantisi", "Sevgiyle paket"]
-                  .map((t, i) => (
-                    <li key={i} className="flex items-center gap-2">
-                      <span className="text-green-600">✅</span>
-                      <span className="text-slate-700">{t}</span>
-                    </li>
-                  ))}
-              </ul>
+            {/* Sağ: İstatistikler + Mini zaman çizgisi */}
+            <div className="md:col-span-5">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border bg-white p-4 text-center">
+                  <div className="text-2xl font-extrabold text-secondary">4.9</div>
+                  <div className="text-xs text-slate-600">Ortalama Puan</div>
+                </div>
+                <div className="rounded-2xl border bg-white p-4 text-center">
+                  <div className="text-2xl font-extrabold text-secondary">48 Saat</div>
+                  <div className="text-xs text-slate-600">İçinde Kargo</div>
+                </div>
+              </div>
+              <div className="mt-4 rounded-2xl border bg-white p-4">
+                <div className="text-sm font-semibold text-slate-800 mb-2">Nasıl Hazırlıyoruz?</div>
+                <ol className="space-y-2 text-sm">
+                  <li className="flex gap-2"><span className="text-secondary">1.</span> Hamur açma ve kesim</li>
+                  <li className="flex gap-2"><span className="text-secondary">2.</span> Doğal kurutma</li>
+                  <li className="flex gap-2"><span className="text-secondary">3.</span> Hijyenik paketleme</li>
+                </ol>
+              </div>
             </div>
           </div>
         </div>
@@ -202,6 +176,9 @@ export default function HomePage() {
               price: p.price,
               image: p.image,
               sellerName: p.sellerName,
+              storeName: p.storeName,
+              seller: p.seller,
+              category: p.category,
               rating: p.rating,
             }))} />
           ) : (
@@ -216,19 +193,6 @@ export default function HomePage() {
             </div>
           )}
         </motion.div>
-        {/* Öne çıkan kategoriler (rozetler) */}
-        <div className="mt-6 flex flex-wrap gap-2">
-          {Array.from(new Set(products.map(p=>p.category).filter(Boolean))).slice(0,6).map((c,i)=> (
-            <span key={i} className="inline-flex items-center rounded-full border px-3 py-1 text-xs text-slate-700 bg-white">{String(c)}</span>
-          ))}
-          {products.length === 0 && (
-            <>
-              {['erişte','tarhana','salça','reçel','erişte tam buğday'].map((c,i)=>(
-                <span key={'ph'+i} className="inline-flex items-center rounded-full border px-3 py-1 text-xs text-slate-700 bg-white">{c}</span>
-              ))}
-            </>
-          )}
-        </div>
       </section>
 
       {/* MÜŞTERİ YORUMLARI — statik placeholder */}
@@ -291,9 +255,22 @@ export default function HomePage() {
               { id: 'ph3', title: 'Doğal Ürünlerin Önemi', createdAt: null, image: '🌿', category: 'Sağlık' },
             ]).map((p:any, idx:number) => (
               <article key={p.id || idx} className="group bg-gradient-to-br from-secondary/5 to-secondary/10 rounded-2xl overflow-hidden border border-secondary/30 shadow-sm hover:shadow-md transition">
-                <div className="aspect-video bg-gradient-to-br from-secondary/20 to-secondary/10 flex items-center justify-center text-5xl">
-                  {p.image ? <span>{p.image}</span> : <span>📝</span>}
-                </div>
+                {(() => {
+                  const img = p.coverImage || p.image
+                  const isUrl = typeof img === 'string' && (/^https?:\/\//i).test(img)
+                  if (isUrl) {
+                    return (
+                      <div className="aspect-video overflow-hidden">
+                        <img src={img} alt={p.title} className="w-full h-full object-cover" />
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="aspect-video bg-gradient-to-br from-secondary/20 to-secondary/10 flex items-center justify-center text-5xl">
+                      <span>{img || '📝'}</span>
+                    </div>
+                  )
+                })()}
                 <div className="p-5">
                   <div className="flex items-center gap-3 text-xs text-slate-600 mb-2">
                     <span className="px-2 py-0.5 bg-secondary text-white rounded-full">{p.category || 'Genel'}</span>
