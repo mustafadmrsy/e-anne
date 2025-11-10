@@ -175,6 +175,7 @@ export default function HomePage() {
               name: p.name,
               price: p.price,
               image: p.image,
+              images: p.images,
               sellerName: p.sellerName,
               storeName: p.storeName,
               seller: p.seller,
@@ -249,11 +250,7 @@ export default function HomePage() {
             <Link href="/blog" className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary text-white text-sm">Tüm Yazılar <span aria-hidden>→</span></Link>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
-            {(posts.length > 0 ? posts.slice(0,3) : [
-              { id: 'ph1', title: 'Ev Yapımı Erişte Nasıl Saklanır?', createdAt: null, image: '📝', category: 'İpuçları' },
-              { id: 'ph2', title: 'Tarhananın Faydaları ve Tarifleri', createdAt: null, image: '🥘', category: 'Tarif' },
-              { id: 'ph3', title: 'Doğal Ürünlerin Önemi', createdAt: null, image: '🌿', category: 'Sağlık' },
-            ]).map((p:any, idx:number) => (
+            {(posts.length > 0 ? posts.slice(0,3) : []).map((p:any, idx:number) => (
               <article key={p.id || idx} className="group bg-gradient-to-br from-secondary/5 to-secondary/10 rounded-2xl overflow-hidden border border-secondary/30 shadow-sm hover:shadow-md transition">
                 {(() => {
                   const img = p.coverImage || p.image
@@ -283,6 +280,9 @@ export default function HomePage() {
                 </div>
               </article>
             ))}
+            {posts.length===0 && (
+              <div className="text-slate-600">Henüz yayınlanmış yazı bulunmuyor.</div>
+            )}
           </div>
         </div>
       </section>

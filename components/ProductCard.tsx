@@ -10,6 +10,7 @@ export type Product = {
   name: string
   price: string | number
   image: string
+  images?: string[]
   brand?: string
   sellerName?: string
   storeName?: string
@@ -41,6 +42,13 @@ export function ProductCard({ product }: { product: Product }) {
   })()
   const displaySeller = (product as any).sellerName || (product as any).storeName || (product as any).seller || undefined
 
+  const imgs = (product.images && product.images.length > 0) ? product.images : [product.image]
+  const [idx, setIdx] = useState(0)
+  const go = (dir: number) => {
+    const n = imgs.length
+    setIdx(v => (v + dir + n) % n)
+  }
+
   return (
     <article
       className="group rounded-3xl border border-secondary/20 bg-white/90 backdrop-blur-sm shadow-sm hover:shadow-xl transition-all overflow-hidden hover:-translate-y-0.5"
@@ -56,12 +64,38 @@ export function ProductCard({ product }: { product: Product }) {
       >
         <div className="relative overflow-hidden">
           <img
-            src={product.image}
+            src={imgs[idx]}
             alt={product.name}
             className="aspect-square w-full object-cover duration-500 ease-out group-hover:scale-105"
             loading="lazy"
             decoding="async"
           />
+
+          {imgs.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Önceki görsel"
+                onClick={(e)=>{e.preventDefault(); go(-1)}}
+                className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/90 text-slate-700 shadow hidden group-hover:flex items-center justify-center"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                aria-label="Sonraki görsel"
+                onClick={(e)=>{e.preventDefault(); go(1)}}
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full bg-white/90 text-slate-700 shadow hidden group-hover:flex items-center justify-center"
+              >
+                ›
+              </button>
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                {imgs.map((_,i)=> (
+                  <span key={i} className={`h-1.5 w-1.5 rounded-full ${i===idx?'bg-white':'bg-white/60'}`} />
+                ))}
+              </div>
+            </>
+          )}
 
           {/* Kategori etiketi */}
           {product.category && (
@@ -111,7 +145,7 @@ export function ProductCard({ product }: { product: Product }) {
             className="w-full rounded-xl bg-secondary px-4 py-3 text-white font-semibold hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-secondary/30"
             aria-label={`Sepete ekle: ${product.name}`}
             onClick={() => {
-              add({ slug: product.slug, name: product.name, price: priceNumber, image: product.image }, qty)
+              add({ slug: product.slug, name: product.name, price: priceNumber, image: product.image, sellerId: (product as any)?.sellerId, productId: (product as any)?.id || (product as any)?.productId }, qty)
               show(`${qty} adet eklendi`)
               openCart()
             }}

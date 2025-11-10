@@ -22,6 +22,18 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const [rating, setRating] = useState<number>(5)
   const [comment, setComment] = useState<string>('')
   const [replyText, setReplyText] = useState<Record<string, string>>({})
+  const imgs = useMemo(() => {
+    const arr = Array.isArray((prod as any)?.images) && (prod as any).images.length > 0 ? (prod as any).images : ((prod as any)?.image ? [(prod as any).image] : [])
+    return arr as string[]
+  }, [prod])
+  const [idx, setIdx] = useState<number>(0)
+  const go = (dir: number) => {
+    setIdx(v => {
+      const n = imgs.length || 1
+      return (v + dir + n) % n
+    })
+  }
+  const [lightbox, setLightbox] = useState<boolean>(false)
 
   useEffect(() => {
     let alive = true
@@ -55,15 +67,63 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
         {/* Görsel / Galeri */}
         <section className="lg:col-span-7">
           <div className="rounded-2xl border border-slate-200 bg-white shadow-card overflow-hidden">
-            <div className="w-full aspect-[4/3] bg-white flex items-center justify-center">
+            <div className="relative w-full aspect-[4/3] bg-white flex items-center justify-center">
               <img
-                src={prod.image}
+                src={(imgs[idx] || prod.image) as string}
                 alt={prod.name}
-                className="max-h-[420px] w-auto object-contain"
+                className="max-h-[520px] w-auto object-contain cursor-zoom-in"
+                onClick={() => setLightbox(true)}
               />
+              <>
+                <button
+                  type="button"
+                  aria-label="Önceki"
+                  onClick={() => { if (imgs.length > 1) go(-1) }}
+                  className="absolute z-10 left-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full shadow flex items-center justify-center bg-secondary text-white"
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  aria-label="Sonraki"
+                  onClick={() => { if (imgs.length > 1) go(1) }}
+                  className="absolute z-10 right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full shadow flex items-center justify-center bg-secondary text-white"
+                >
+                  ›
+                </button>
+                {imgs.length > 1 && (
+                  <div className="absolute z-10 bottom-3 left-1/2 -translate-x-1/2 flex gap-1">
+                    {imgs.map((_, i) => (
+                      <span key={i} className={`h-1.5 w-1.5 rounded-full ${i===idx ? 'bg-slate-700' : 'bg-slate-400/70'}`} />
+                    ))}
+                  </div>
+                )}
+              </>
             </div>
+            {imgs.length > 1 && (
+              <div className="p-3 grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                {imgs.map((src, i) => (
+                  <button key={i} type="button" onClick={() => setIdx(i)} className={`border rounded-lg overflow-hidden ${i===idx?'ring-2 ring-secondary border-transparent':'border-slate-200'}`}>
+                    <img src={src} alt={`thumb-${i+1}`} className="h-16 w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
+          {lightbox && (
+            <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setLightbox(false)}>
+              <button aria-label="Kapat" className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/90 text-slate-700" onClick={() => setLightbox(false)}>×</button>
+              {imgs.length > 1 && (
+                <button aria-label="Önceki" className="absolute left-4 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-white/90 text-slate-700" onClick={(e)=>{e.stopPropagation(); go(-1)}}>‹</button>
+              )}
+              <img src={(imgs[idx] || prod.image) as string} alt={prod.name} className="max-h-[90vh] max-w-[90vw] object-contain" onClick={(e)=>e.stopPropagation()} />
+              {imgs.length > 1 && (
+                <button aria-label="Sonraki" className="absolute right-4 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-white/90 text-slate-700" onClick={(e)=>{e.stopPropagation(); go(1)}}>›</button>
+              )}
+            </div>
+          )}
+          
           {/* Yorumlar */}
           <div className="mt-6 sm:mt-8 rounded-2xl border border-slate-200 bg-white p-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
@@ -210,14 +270,14 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
               <button
                 disabled={!!isOwner}
                 className="flex-1 rounded-lg bg-brand px-4 py-3 text-white font-semibold hover:opacity-90 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand/40"
-                onClick={() => { if (isOwner) return; add({ slug: prod.slug, name: prod.name, price: priceNumber, image: prod.image }, qty); openCart() }}
+                onClick={() => { if (isOwner) return; add({ slug: prod.slug, name: prod.name, price: priceNumber, image: prod.image, sellerId: (prod as any)?.sellerId, productId: (prod as any)?.id || (prod as any)?.productId }, qty); openCart() }}
               >
                 Sepete Ekle
               </button>
               <button
                 disabled={!!isOwner}
                 className="rounded-lg bg-secondary px-4 py-3 text-white font-semibold hover:bg-[#115e99] disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-secondary"
-                onClick={() => { if (isOwner) return; add({ slug: prod.slug, name: prod.name, price: priceNumber, image: prod.image }, qty); router.push('/cart') }}
+                onClick={() => { if (isOwner) return; add({ slug: prod.slug, name: prod.name, price: priceNumber, image: prod.image, sellerId: (prod as any)?.sellerId, productId: (prod as any)?.id || (prod as any)?.productId }, qty); router.push('/cart') }}
               >
                 Hemen Satın Al
               </button>

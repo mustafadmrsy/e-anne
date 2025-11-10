@@ -130,7 +130,7 @@ export default function OrdersPage() {
                 <div className="text-sm text-slate-600">{fDate(o.createdAt)} • {o.orderNo}</div>
                 <div className="flex items-center gap-2">
                   <span className={`px-2 py-1 rounded-full text-xs ${
-                    o.status === 'teslim edildi' ? 'bg-emerald-50 text-emerald-700' : o.status === 'kargoda' ? 'bg-blue-50 text-blue-700' : o.status === 'iptal' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                    o.status === 'teslim edildi' ? 'bg-emerald-50 text-emerald-700' : (o.status === 'kargoda' || o.status === 'kargolandı') ? 'bg-blue-50 text-blue-700' : o.status === 'iptal' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
                   }`}>{o.status}</span>
                   {o.trackingUrl ? (
                     <a href={o.trackingUrl} target="_blank" className="text-sm text-brand underline">Kargoyu Takip Et</a>
@@ -151,7 +151,6 @@ export default function OrdersPage() {
                 <div className="flex flex-wrap gap-2">
                   <button className="rounded-lg border px-3 py-1.5">Fatura İndir</button>
                   <button className="rounded-lg border px-3 py-1.5">İade Talebi</button>
-                  <button className="rounded-lg border px-3 py-1.5" onClick={()=>router.push(`/orders/${o.id}`)}>Detayları Gör</button>
                   <button className="rounded-lg border border-red-300 text-red-600 px-3 py-1.5" onClick={()=>deleteOrder(o.id)}>Siparişi Sil</button>
                 </div>
               </div>

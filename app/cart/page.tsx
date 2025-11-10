@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useCart } from "@/components/CartProvider"
 import { auth, db } from "@/lib/firebaseClient"
 import { onAuthStateChanged, getIdToken } from "firebase/auth"
@@ -12,6 +12,7 @@ type Address = { id?: string; title: string; line1: string; city: string; distri
 
 export default function CartPage() {
   const router = useRouter()
+  const search = useSearchParams()
   const { items, total, setQty, remove, clear } = useCart()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [uid, setUid] = useState<string | null>(null)
@@ -23,6 +24,8 @@ export default function CartPage() {
   const [payment, setPayment] = useState<string>("card")
   const [coupon, setCoupon] = useState<string>("")
   const [agree, setAgree] = useState<boolean>(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string>("")
   const discount = coupon.trim().toUpperCase() === "EANNEX10" ? Math.min(total * 0.1, 100) : 0
   const shippingFee = shipping === "standart" ? 29.9 : shipping === "express" ? 59.9 : 0
   const payable = Math.max(0, total - discount) + (items.length > 0 ? shippingFee : 0)
@@ -30,7 +33,9 @@ export default function CartPage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (!u) {
-        router.push("/login")
+        setUid(null)
+        setAddresses([])
+        setSelectedAddrId(null)
         return
       }
       setUid(u.uid)
@@ -66,24 +71,26 @@ export default function CartPage() {
   }
 
   const proceedToPayment = () => {
-    if (!selectedAddrId) return
+    const hasSelected = !!selectedAddrId
+    const hasGuestAddr = !!(newAddr.title && newAddr.line1 && newAddr.city && newAddr.district && newAddr.zip)
+    if (!hasSelected && !hasGuestAddr) return
     setStep(2)
   }
 
   const completeOrder = async () => {
     if (!agree) return
-    if (!uid) return
-    const addr = addresses.find((a) => a.id === selectedAddrId) || null
+    const addr = addresses.find((a) => a.id === selectedAddrId) || (newAddr.title ? newAddr : null)
     const orderNo = `EA-${Date.now()}`
     try {
+      setErrorMsg("")
+      setSubmitting(true)
       const user = auth.currentUser
-      if (!user) return
-      const token = await getIdToken(user)
+      const token = user ? await getIdToken(user) : null
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           orderNo,
@@ -93,18 +100,44 @@ export default function CartPage() {
           shippingMethod: shipping,
           paymentMethod: payment,
           address: addr ? { ...addr } : null,
-          coupon: coupon || null
+          coupon: coupon || null,
+          guest: !token
         })
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({}))
+        const msg = err?.error || 'Sipariş oluşturulamadı.'
+        setErrorMsg(msg)
+        console.error('order-failed', msg, err)
+        return
+      }
       clear()
-      router.push("/orders")
-    } catch {}
+      if (token) {
+        router.push("/orders")
+      } else {
+        router.push("/cart?success=1")
+      }
+    } catch (e:any) {
+      console.error('order-exception', e)
+      setErrorMsg('Bir hata oluştu. Lütfen tekrar deneyin.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
     <main className="container mx-auto px-4 py-6 sm:py-8">
       <h1 className="text-2xl sm:text-3xl font-bold text-secondary">Ödeme</h1>
+      {search?.get('success') === '1' && (
+        <div className="mt-4 rounded-xl border border-green-200 bg-green-50 text-green-800 p-4">
+          Siparişiniz alındı. Teşekkür ederiz.
+        </div>
+      )}
+      {errorMsg && (
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 text-red-700 p-4">
+          {errorMsg}
+        </div>
+      )}
       {items.length === 0 ? (
         <div className="mt-6 rounded-xl border border-slate-200 p-6 text-center bg-white">
           <p className="text-slate-600">Sepetiniz boş.</p>
@@ -226,7 +259,7 @@ export default function CartPage() {
                     </div>
                     <div className="flex gap-3">
                       <button onClick={()=>setStep(2)} className="rounded-lg border px-4 py-2.5">Geri</button>
-                      <button onClick={completeOrder} disabled={!agree} className="rounded-lg bg-brand px-4 py-2.5 text-white disabled:opacity-50">Siparişi Tamamla</button>
+                      <button onClick={completeOrder} disabled={!agree || submitting} className="rounded-lg bg-brand px-4 py-2.5 text-white disabled:opacity-50">{submitting ? 'İşleniyor…' : 'Siparişi Tamamla'}</button>
                     </div>
                   </div>
                 </div>

@@ -53,15 +53,21 @@ export default function SellerPostsPage() {
     ;(async () => {
       try {
         const token = await getIdToken(auth.currentUser!)
-        const presign = await fetch('/api/uploads/b2', {
+        const direct = await fetch('/api/uploads/images', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ filename: f.name, contentType: f.type, folder: 'posts/cover' })
+          headers: { 'Authorization': `Bearer ${token}` },
         }).then(r=>r.json())
-        if (!presign?.ok) throw new Error('presign')
-        await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type }, body: f })
+        if (!direct?.ok || !direct?.uploadURL) throw new Error('direct')
+        const fd = new FormData()
+        fd.append('file', f, f.name)
+        const uploadToken = direct?.raw?.uploadToken || direct?.uploadToken || null
+        const upRes = await fetch(direct.uploadURL, { method: 'POST', body: fd, headers: uploadToken ? { 'Authorization': `Bearer ${uploadToken}` } : undefined })
+        const upJson = await upRes.json().catch(()=>({}))
+        const imageId = upJson?.result?.id || upJson?.id
+        if (!upRes.ok || !imageId) throw new Error('upload')
         setUploadPctCover(100)
-        setCoverImage(presign.publicUrl)
+        const hash = process.env.NEXT_PUBLIC_CF_IMAGES_HASH as string
+        setCoverImage(`https://imagedelivery.net/${hash}/${imageId}/public`)
       } catch {
         setError('Yükleme başarısız')
         setUploadPctCover(0)
@@ -77,15 +83,21 @@ export default function SellerPostsPage() {
     ;(async () => {
       try {
         const token = await getIdToken(auth.currentUser!)
-        const presign = await fetch('/api/uploads/b2', {
+        const direct = await fetch('/api/uploads/images', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ filename: f.name, contentType: f.type, folder: 'posts/cover' })
+          headers: { 'Authorization': `Bearer ${token}` },
         }).then(r=>r.json())
-        if (!presign?.ok) throw new Error('presign')
-        await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type }, body: f })
+        if (!direct?.ok || !direct?.uploadURL) throw new Error('direct')
+        const fd = new FormData()
+        fd.append('file', f, f.name)
+        const uploadToken = direct?.raw?.uploadToken || direct?.uploadToken || null
+        const upRes = await fetch(direct.uploadURL, { method: 'POST', body: fd, headers: uploadToken ? { 'Authorization': `Bearer ${uploadToken}` } : undefined })
+        const upJson = await upRes.json().catch(()=>({}))
+        const imageId = upJson?.result?.id || upJson?.id
+        if (!upRes.ok || !imageId) throw new Error('upload')
         setEditUploadPctCover(100)
-        setEditCoverImage(presign.publicUrl)
+        const hash = process.env.NEXT_PUBLIC_CF_IMAGES_HASH as string
+        setEditCoverImage(`https://imagedelivery.net/${hash}/${imageId}/public`)
       } catch {
         setError('Yükleme başarısız')
         setEditUploadPctCover(0)
@@ -100,15 +112,21 @@ export default function SellerPostsPage() {
     ;(async () => {
       try {
         const token = await getIdToken(auth.currentUser!)
-        const presign = await fetch('/api/uploads/b2', {
+        const direct = await fetch('/api/uploads/images', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ filename: f.name, contentType: f.type, folder: 'posts/content' })
+          headers: { 'Authorization': `Bearer ${token}` },
         }).then(r=>r.json())
-        if (!presign?.ok) throw new Error('presign')
-        await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type }, body: f })
+        if (!direct?.ok || !direct?.uploadURL) throw new Error('direct')
+        const fd = new FormData()
+        fd.append('file', f, f.name)
+        const uploadToken = direct?.raw?.uploadToken || direct?.uploadToken || null
+        const upRes = await fetch(direct.uploadURL, { method: 'POST', body: fd, headers: uploadToken ? { 'Authorization': `Bearer ${uploadToken}` } : undefined })
+        const upJson = await upRes.json().catch(()=>({}))
+        const imageId = upJson?.result?.id || upJson?.id
+        if (!upRes.ok || !imageId) throw new Error('upload')
         setEditUploadPctContent(100)
-        setEditContentImage(presign.publicUrl)
+        const hash = process.env.NEXT_PUBLIC_CF_IMAGES_HASH as string
+        setEditContentImage(`https://imagedelivery.net/${hash}/${imageId}/public`)
       } catch {
         setError('Yükleme başarısız')
         setEditUploadPctContent(0)
@@ -123,15 +141,20 @@ export default function SellerPostsPage() {
     ;(async () => {
       try {
         const token = await getIdToken(auth.currentUser!)
-        const presign = await fetch('/api/uploads/b2', {
+        const direct = await fetch('/api/uploads/images', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ filename: f.name, contentType: f.type, folder: 'posts/content' })
+          headers: { 'Authorization': `Bearer ${token}` },
         }).then(r=>r.json())
-        if (!presign?.ok) throw new Error('presign')
-        await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': f.type }, body: f })
+        if (!direct?.ok || !direct?.uploadURL) throw new Error('direct')
+        const fd = new FormData()
+        fd.append('file', f, f.name)
+        const upRes = await fetch(direct.uploadURL, { method: 'POST', body: fd })
+        const upJson = await upRes.json().catch(()=>({}))
+        const imageId = upJson?.result?.id || upJson?.id
+        if (!upRes.ok || !imageId) throw new Error('upload')
         setUploadPctContent(100)
-        setContentImage(presign.publicUrl)
+        const hash = process.env.NEXT_PUBLIC_CF_IMAGES_HASH as string
+        setContentImage(`https://imagedelivery.net/${hash}/${imageId}/public`)
       } catch {
         setError('Yükleme başarısız')
         setUploadPctContent(0)

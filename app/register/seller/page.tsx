@@ -70,14 +70,20 @@ export default function SellerRegisterPage() {
   const uploadIfAny = async (path: string, file: File | null) => {
     if (!file || !uid) return null
     const token = await getIdToken(auth.currentUser!)
-    const presign = await fetch('/api/uploads/b2', {
+    const direct = await fetch('/api/uploads/images', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ filename: file.name, contentType: file.type, folder: path })
+      headers: { 'Authorization': `Bearer ${token}` },
     }).then(r=>r.json())
-    if (!presign?.ok) throw new Error('presign')
-    await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
-    return presign.publicUrl as string
+    if (!direct?.ok || !direct?.uploadURL) throw new Error('direct')
+    const fd = new FormData()
+    fd.append('file', file, file.name)
+    const uploadToken = direct?.raw?.uploadToken || direct?.uploadToken || null
+    const upRes = await fetch(direct.uploadURL, { method: 'POST', body: fd, headers: uploadToken ? { 'Authorization': `Bearer ${uploadToken}` } : undefined })
+    const upJson = await upRes.json().catch(()=>({}))
+    const imageId = upJson?.result?.id || upJson?.id
+    if (!upRes.ok || !imageId) throw new Error('upload')
+    const hash = process.env.NEXT_PUBLIC_CF_IMAGES_HASH as string
+    return `https://imagedelivery.net/${hash}/${imageId}/public`
   }
 
   const onSubmit = async (e: React.FormEvent) => {

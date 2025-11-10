@@ -22,7 +22,7 @@ export default function Page() {
   const [price, setPrice] = useState("")
   const [stock, setStock] = useState("")
   const [status, setStatus] = useState<"active"|"inactive">("active")
-  const [imageUrl, setImageUrl] = useState("")
+  const [images, setImages] = useState<string[]>([])
   const [slug, setSlug] = useState("")
   const [category, setCategory] = useState("")
   const [categories, setCategories] = useState<{id:string;name:string}[]>([])
@@ -41,7 +41,7 @@ export default function Page() {
             setPrice(String(data.price ?? ""))
             setStock(String(data.stock ?? ""))
             setStatus((data.status as any) || "active")
-            setImageUrl(data.image || data.imageUrl || "")
+            setImages(Array.isArray(data.images) ? data.images : (data.image ? [data.image] : []))
             setSlug((data.slugNormalized as string) || data.slug || "")
             setCategory(data.category || "")
           }
@@ -85,10 +85,7 @@ export default function Page() {
     if (isNaN(p) || p < 0) { setError("Geçerli bir fiyat girin."); return }
     if (isNaN(s) || s < 0) { setError("Geçerli bir stok girin."); return }
     if (!category || category.trim().length < 2) { setError("Geçerli bir kategori seçin."); return }
-    const url = imageUrl.trim()
-    if (!url) { setError("Görsel URL zorunludur."); return }
-    if (/google\.com\/search/i.test(url)) { setError("Lütfen doğrudan görsel URL'si kullanın (Google arama linki değil)."); return }
-    if (!/^https?:\/\//i.test(url)) { setError("Görsel URL http/https ile başlamalıdır."); return }
+    if (!images || images.length === 0) { setError("En az bir ürün görseli yükleyin."); return }
     setSaving(true)
     try {
       const data = {
@@ -97,7 +94,8 @@ export default function Page() {
         price: Math.max(0, p),
         stock: Math.max(0, Math.floor(s)),
         status: status === 'inactive' ? 'inactive' : 'active',
-        image: url,
+        image: images[0],
+        images: images,
         slug: finalSlug,
         slugNormalized: finalSlug,
         category,
@@ -118,6 +116,7 @@ export default function Page() {
             name: data.name,
             price: data.price,
             image: data.image,
+            images: data.images,
             category: data.category,
           })
         })
@@ -140,6 +139,7 @@ export default function Page() {
             name: data.name,
             price: data.price,
             image: data.image,
+            images: data.images,
             category: data.category,
           })
         })
@@ -217,9 +217,44 @@ export default function Page() {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-700 mb-1">Görsel URL</label>
-              <input value={imageUrl} onChange={(e)=>setImageUrl(e.target.value)} placeholder="https://..." className="w-full rounded-lg border px-3 py-2 text-sm" />
-              <p className="text-xs text-slate-500 mt-1">Şimdilik URL girin. İleride Storage yükleme eklenecek.</p>
+              <label className="block text-xs text-slate-700 mb-1">Ürün Görselleri</label>
+              <input type="file" multiple accept="image/*" onChange={async (e)=>{
+                const files = Array.from(e.target.files || []) as File[]
+                if (!files.length || !uid) return
+                setError(null)
+                // Yüklemeleri sırayla yapalım
+                const token = await getIdToken(auth.currentUser!)
+                const uploaded: string[] = [...images]
+                for (const f of files) {
+                  try {
+                    const direct = await fetch('/api/uploads/images', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).then(r=>r.json())
+                    if (!direct?.ok || !direct?.uploadURL) throw new Error('direct')
+                    const fd = new FormData()
+                    fd.append('file', f, f.name)
+                    const uploadToken = direct?.raw?.uploadToken || direct?.uploadToken || null
+                    const upRes = await fetch(direct.uploadURL, { method: 'POST', body: fd, headers: uploadToken ? { 'Authorization': `Bearer ${uploadToken}` } : undefined })
+                    const upJson = await upRes.json().catch(()=>({}))
+                    const imageId = upJson?.result?.id || upJson?.id
+                    if (!upRes.ok || !imageId) throw new Error('upload')
+                    const hash = process.env.NEXT_PUBLIC_CF_IMAGES_HASH as string
+                    uploaded.push(`https://imagedelivery.net/${hash}/${imageId}/public`)
+                  } catch (e) {
+                    setError('Bazı görseller yüklenemedi.')
+                  }
+                }
+                setImages(uploaded)
+              }} className="w-full rounded-lg border px-3 py-2 text-sm" />
+              {images.length>0 && (
+                <div className="mt-2 grid grid-cols-4 gap-2">
+                  {images.map((src, i) => (
+                    <div key={i} className="relative">
+                      <img src={src} alt={`görsel-${i+1}`} className="h-20 w-20 object-cover rounded-lg border" />
+                      <button type="button" onClick={()=>setImages(prev=>prev.filter((_,idx)=>idx!==i))} className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-600 text-white text-xs">×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-slate-500 mt-1">Birden fazla görsel seçebilirsiniz. İlk görsel kapak olarak kullanılır.</p>
             </div>
           </div>
         </section>
@@ -232,11 +267,13 @@ export default function Page() {
               <button type="submit" disabled={saving} className="rounded-lg bg-brand text-white px-4 py-2 text-sm disabled:opacity-50">{saving?"Kaydediliyor...":"Kaydet"}</button>
               <button type="button" onClick={()=>router.push("/seller/products")} className="rounded-lg border px-4 py-2 text-sm">İptal</button>
             </div>
-            {imageUrl ? (
-              <div className="mt-2">
-                <img src={imageUrl} alt="preview" className="h-32 w-32 object-cover rounded-lg border" />
+            {images.length>0 && (
+              <div className="mt-2 grid grid-cols-6 gap-2">
+                {images.map((src,i)=> (
+                  <img key={i} src={src} alt={`preview-${i+1}`} className="h-24 w-24 object-cover rounded-lg border" />
+                ))}
               </div>
-            ) : null}
+            )}
           </div>
         </section>
       </form>
