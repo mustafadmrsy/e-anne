@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation"
 import { auth, db } from "@/lib/firebaseClient"
 import { onAuthStateChanged } from "firebase/auth"
 import { doc, serverTimestamp, setDoc, updateDoc, getDoc } from "firebase/firestore"
-import app from "@/lib/firebaseClient"
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import { getIdToken } from "firebase/auth"
 
 export default function SellerRegisterPage() {
   const router = useRouter()
@@ -70,10 +69,15 @@ export default function SellerRegisterPage() {
 
   const uploadIfAny = async (path: string, file: File | null) => {
     if (!file || !uid) return null
-    const storage = getStorage(app)
-    const r = ref(storage, `${path}/${uid}/${Date.now()}_${file.name}`)
-    await uploadBytes(r, file)
-    return await getDownloadURL(r)
+    const token = await getIdToken(auth.currentUser!)
+    const presign = await fetch('/api/uploads/b2', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ filename: file.name, contentType: file.type, folder: path })
+    }).then(r=>r.json())
+    if (!presign?.ok) throw new Error('presign')
+    await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
+    return presign.publicUrl as string
   }
 
   const onSubmit = async (e: React.FormEvent) => {

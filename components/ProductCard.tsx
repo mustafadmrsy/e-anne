@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useCart } from './CartProvider'
 import { useToast } from './ToastProvider'
 import { useState } from 'react'
+import { useCartUI } from './CartUIProvider'
 
 export type Product = {
   slug: string
@@ -20,6 +21,7 @@ export type Product = {
 export function ProductCard({ product }: { product: Product }) {
   const { add } = useCart()
   const { show } = useToast()
+  const { openCart } = useCartUI()
   const priceNumber =
     typeof product.price === 'number'
       ? product.price
@@ -111,6 +113,7 @@ export function ProductCard({ product }: { product: Product }) {
             onClick={() => {
               add({ slug: product.slug, name: product.name, price: priceNumber, image: product.image }, qty)
               show(`${qty} adet eklendi`)
+              openCart()
             }}
           >
             🛒 Sepete Ekle

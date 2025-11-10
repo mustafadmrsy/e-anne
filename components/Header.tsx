@@ -6,6 +6,7 @@ import { CartIcon, UserIcon, SearchIcon, MenuIcon, CloseIcon } from './icons'
 import AccountTrigger from './AccountTrigger'
 import AccountMenu from './AccountMenu'
 import { useCart } from './CartProvider'
+import { useCartUI } from './CartUIProvider'
 import { motion, AnimatePresence } from 'framer-motion'
 import { auth, db } from '@/lib/firebaseClient'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
@@ -15,6 +16,7 @@ export default function Header() {
   const router = useRouter()
   const pathname = usePathname()
   const { count } = useCart()
+  const { openCart } = useCartUI()
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -397,7 +399,7 @@ export default function Header() {
             onClick={() => {
               setAccountOpen(false)
               setCartOpen(false)
-              router.push('/cart')
+              openCart()
             }}
           >
             <CartIcon />
@@ -461,7 +463,7 @@ export default function Header() {
                       setAccountOpen(false)
                       setCartOpen(false)
                       setOpen(false)
-                      router.push('/cart')
+                      openCart()
                     }}
                   >
                     <CartIcon />

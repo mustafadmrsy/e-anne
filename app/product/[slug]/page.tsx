@@ -2,6 +2,7 @@
 
 import { notFound, useRouter } from 'next/navigation'
 import { useCart } from '@/components/CartProvider'
+import { useCartUI } from '@/components/CartUIProvider'
 import { useEffect, useMemo, useState } from 'react'
 import { auth } from '@/lib/firebaseClient'
 import { onAuthStateChanged, getIdToken } from 'firebase/auth'
@@ -9,6 +10,7 @@ import { onAuthStateChanged, getIdToken } from 'firebase/auth'
 export default function ProductPage({ params }: { params: { slug: string } }) {
   const router = useRouter()
   const { add } = useCart()
+  const { openCart } = useCartUI()
   const [prod, setProd] = useState<any | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [qty, setQty] = useState<number>(1)
@@ -208,7 +210,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
               <button
                 disabled={!!isOwner}
                 className="flex-1 rounded-lg bg-brand px-4 py-3 text-white font-semibold hover:opacity-90 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand/40"
-                onClick={() => { if (isOwner) return; add({ slug: prod.slug, name: prod.name, price: priceNumber, image: prod.image }, qty) }}
+                onClick={() => { if (isOwner) return; add({ slug: prod.slug, name: prod.name, price: priceNumber, image: prod.image }, qty); openCart() }}
               >
                 Sepete Ekle
               </button>
