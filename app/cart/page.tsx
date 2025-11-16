@@ -1,302 +1,173 @@
-"use client"
+/**
+ * Cart Page - Modern Shopping Cart
+ * Server-Side Rendered with Client Components
+ */
 
-import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useCart } from "@/components/CartProvider"
-import { auth, db } from "@/lib/firebaseClient"
-import { onAuthStateChanged, getIdToken } from "firebase/auth"
-import { collection, getDocs, doc, addDoc, updateDoc, serverTimestamp } from "firebase/firestore"
+"use client";
 
-type Address = { id?: string; title: string; line1: string; city: string; district: string; zip: string; phone?: string }
+import { useEffect } from "react";
+import { useCartStore } from "@/lib/stores";
+import { CartItemComponent } from "@/components/cart/CartItemComponent";
+import { CartSummaryComponent } from "@/components/cart/CartSummaryComponent";
+import { EmptyCart } from "@/components/cart/EmptyCart";
 
 export default function CartPage() {
-  const router = useRouter()
-  const search = useSearchParams()
-  const { items, total, setQty, remove, clear } = useCart()
-  const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [uid, setUid] = useState<string | null>(null)
-  const [addresses, setAddresses] = useState<Address[]>([])
-  const emptyAddress = useMemo(() => ({ title: "", line1: "", city: "", district: "", zip: "", phone: "" }), [])
-  const [newAddr, setNewAddr] = useState<Address>(emptyAddress)
-  const [selectedAddrId, setSelectedAddrId] = useState<string | null>(null)
-  const [shipping, setShipping] = useState<string>("standart")
-  const [payment, setPayment] = useState<string>("card")
-  const [coupon, setCoupon] = useState<string>("")
-  const [agree, setAgree] = useState<boolean>(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string>("")
-  const discount = coupon.trim().toUpperCase() === "EANNEX10" ? Math.min(total * 0.1, 100) : 0
-  const shippingFee = shipping === "standart" ? 29.9 : shipping === "express" ? 59.9 : 0
-  const payable = Math.max(0, total - discount) + (items.length > 0 ? shippingFee : 0)
+  const { cart, summary, isLoading, initializeCart, clearCart } = useCartStore();
 
+  // Initialize cart on mount
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) {
-        setUid(null)
-        setAddresses([])
-        setSelectedAddrId(null)
-        return
-      }
-      setUid(u.uid)
-      try {
-        const addrCol = collection(db, "users", u.uid, "addresses")
-        const snap = await getDocs(addrCol)
-        const list: Address[] = []
-        snap.forEach((d) => list.push({ id: d.id, ...(d.data() as any) }))
-        setAddresses(list)
-        if (list[0]?.id) setSelectedAddrId(list[0].id)
-      } catch {}
-    })
-    return () => unsub()
-  }, [router])
+    initializeCart();
+  }, [initializeCart]);
 
-  const saveNewAddress = async () => {
-    if (!uid) return
-    if (!newAddr.title.trim() || !newAddr.line1.trim() || !newAddr.city.trim() || !newAddr.district.trim() || !newAddr.zip.trim()) return
-    try {
-      const ref = await addDoc(collection(db, "users", uid, "addresses"), {
-        title: newAddr.title.trim(),
-        line1: newAddr.line1.trim(),
-        city: newAddr.city.trim(),
-        district: newAddr.district.trim(),
-        zip: newAddr.zip.trim(),
-        phone: (newAddr.phone || "").trim()
-      })
-      const created: Address = { ...newAddr, id: ref.id }
-      setAddresses((p) => [...p, created])
-      setSelectedAddrId(ref.id)
-      setNewAddr(emptyAddress)
-    } catch {}
+  // Loading state
+  if (isLoading && !cart) {
+    return (
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+        </div>
+      </main>
+    );
   }
 
-  const proceedToPayment = () => {
-    const hasSelected = !!selectedAddrId
-    const hasGuestAddr = !!(newAddr.title && newAddr.line1 && newAddr.city && newAddr.district && newAddr.zip)
-    if (!hasSelected && !hasGuestAddr) return
-    setStep(2)
-  }
-
-  const completeOrder = async () => {
-    if (!agree) return
-    const addr = addresses.find((a) => a.id === selectedAddrId) || (newAddr.title ? newAddr : null)
-    const orderNo = `EA-${Date.now()}`
-    try {
-      setErrorMsg("")
-      setSubmitting(true)
-      const user = auth.currentUser
-      const token = user ? await getIdToken(user) : null
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          orderNo,
-          status: 'hazırlanıyor',
-          items: items.map((it) => ({ slug: it.slug, name: it.name, image: it.image, price: it.price, qty: it.qty })),
-          totals: { subtotal: total, discount, shipping: items.length > 0 ? shippingFee : 0, payable },
-          shippingMethod: shipping,
-          paymentMethod: payment,
-          address: addr ? { ...addr } : null,
-          coupon: coupon || null,
-          guest: !token
-        })
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(()=>({}))
-        const msg = err?.error || 'Sipariş oluşturulamadı.'
-        setErrorMsg(msg)
-        console.error('order-failed', msg, err)
-        return
-      }
-      clear()
-      if (token) {
-        router.push("/orders")
-      } else {
-        router.push("/cart?success=1")
-      }
-    } catch (e:any) {
-      console.error('order-exception', e)
-      setErrorMsg('Bir hata oluştu. Lütfen tekrar deneyin.')
-    } finally {
-      setSubmitting(false)
-    }
+  // Empty cart
+  if (!cart || !summary || !summary.hasItems) {
+    return (
+      <main className="container mx-auto px-4 py-8">
+        <EmptyCart />
+      </main>
+    );
   }
 
   return (
-    <main className="container mx-auto px-4 py-6 sm:py-8">
-      <h1 className="text-2xl sm:text-3xl font-bold text-secondary">Ödeme</h1>
-      {search?.get('success') === '1' && (
-        <div className="mt-4 rounded-xl border border-green-200 bg-green-50 text-green-800 p-4">
-          Siparişiniz alındı. Teşekkür ederiz.
-        </div>
-      )}
-      {errorMsg && (
-        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 text-red-700 p-4">
-          {errorMsg}
-        </div>
-      )}
-      {items.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-slate-200 p-6 text-center bg-white">
-          <p className="text-slate-600">Sepetiniz boş.</p>
-          <Link href="/" className="inline-block mt-3 px-4 py-2 rounded-lg bg-brand text-white hover:bg-brand/90">Alışverişe Başla</Link>
-        </div>
-      ) : (
-        <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="grid grid-cols-3 gap-2">
-              <div className={`h-2 rounded-full ${step >= 1 ? 'bg-brand' : 'bg-slate-200'}`} />
-              <div className={`h-2 rounded-full ${step >= 2 ? 'bg-brand' : 'bg-slate-200'}`} />
-              <div className={`h-2 rounded-full ${step >= 3 ? 'bg-brand' : 'bg-slate-200'}`} />
+    <main className="container mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Sepetim</h1>
+        <p className="text-gray-600 mt-2">
+          {summary.itemCount} ürün sepetinizde
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Cart Items */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Clear Cart Button */}
+          {cart.items.length > 0 && (
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={async () => {
+                  if (confirm('Sepeti temizlemek istediğinizden emin misiniz?')) {
+                    await clearCart();
+                  }
+                }}
+                className="text-sm text-gray-600 hover:text-red-600 transition-colors"
+              >
+                Sepeti Temizle
+              </button>
             </div>
+          )}
 
-            {step === 1 && (
-              <div className="space-y-6">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <h2 className="text-xl font-semibold">Teslimat Adresi</h2>
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {addresses.map((a) => (
-                      <label key={a.id} className={`block rounded-xl border p-4 cursor-pointer ${selectedAddrId === a.id ? 'border-brand ring-2 ring-brand/30' : 'border-slate-200'}`}>
-                        <input type="radio" name="addr" className="sr-only" checked={selectedAddrId === a.id} onChange={() => setSelectedAddrId(a.id!)} />
-                        <div className="font-medium">{a.title}</div>
-                        <div className="text-sm text-slate-600 whitespace-pre-line mt-1">{a.line1}\n{a.district} / {a.city} {a.zip}</div>
-                        {a.phone ? <div className="text-sm text-slate-600">{a.phone}</div> : null}
-                      </label>
-                    ))}
-                  </div>
-                  <div className="mt-5 grid grid-cols-1 gap-3 max-w-xl">
-                    <input placeholder="Başlık (Ev, İş...)" value={newAddr.title} onChange={(e)=>setNewAddr({...newAddr, title: e.target.value})} className="rounded-lg border border-slate-300 px-4 py-2.5" />
-                    <textarea placeholder="Adres" rows={3} value={newAddr.line1} onChange={(e)=>setNewAddr({...newAddr, line1: e.target.value})} className="rounded-lg border border-slate-300 px-4 py-2.5" />
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <input placeholder="İl" value={newAddr.city} onChange={(e)=>setNewAddr({...newAddr, city: e.target.value})} className="rounded-lg border border-slate-300 px-4 py-2.5" />
-                      <input placeholder="İlçe" value={newAddr.district} onChange={(e)=>setNewAddr({...newAddr, district: e.target.value})} className="rounded-lg border border-slate-300 px-4 py-2.5" />
-                      <input placeholder="Posta Kodu" value={newAddr.zip} onChange={(e)=>setNewAddr({...newAddr, zip: e.target.value})} className="rounded-lg border border-slate-300 px-4 py-2.5" />
-                    </div>
-                    <input placeholder="Telefon (opsiyonel)" value={newAddr.phone} onChange={(e)=>setNewAddr({...newAddr, phone: e.target.value})} className="rounded-lg border border-slate-300 px-4 py-2.5" />
-                    <div className="flex gap-3">
-                      <button onClick={saveNewAddress} className="rounded-lg bg-brand px-4 py-2.5 text-white">Adresi Kaydet</button>
-                      <button onClick={proceedToPayment} className="rounded-lg border px-4 py-2.5">Ödeme Adımına Geç</button>
-                    </div>
-                  </div>
-                </div>
+          {/* Cart Items List */}
+          {cart.items.map((item) => (
+            <CartItemComponent key={item.id} item={item} />
+          ))}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <h2 className="text-xl font-semibold">Sepet</h2>
-                  <div className="mt-3 space-y-3">
-                    {items.map((it) => (
-                      <div key={it.slug} className="rounded-xl border border-slate-200 p-3 flex items-center gap-3">
-                        <img src={it.image} alt={it.name} className="h-16 w-16 rounded-md object-cover" />
-                        <div className="min-w-0 flex-1">
-                          <Link href={`/product/${it.slug}`} className="font-medium text-slate-800 hover:text-brand line-clamp-1">{it.name}</Link>
-                          <p className="text-sm text-slate-500 mt-0.5">₺{(it.price * it.qty).toFixed(2)}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button aria-label="Azalt" className="w-8 h-8 rounded-lg border hover:bg-slate-50" onClick={() => setQty(it.slug, Math.max(1, it.qty - 1))}>-</button>
-                          <input aria-label="Adet" value={it.qty} onChange={(e) => { const v = parseInt(e.target.value || "1", 10); if (!Number.isNaN(v) && v > 0) setQty(it.slug, v) }} className="w-12 text-center rounded-lg border py-1" />
-                          <button aria-label="Arttır" className="w-8 h-8 rounded-lg border hover:bg-slate-50" onClick={() => setQty(it.slug, it.qty + 1)}>+</button>
-                        </div>
-                        <button aria-label="Kaldır" className="ml-2 px-3 py-1.5 rounded-lg border text-slate-600 hover:bg-slate-50" onClick={() => remove(it.slug)}>Kaldır</button>
+          {/* Bundles (if any) */}
+          {cart.bundles && cart.bundles.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-xl font-semibold mb-4">Paket Ürünler</h2>
+              <div className="space-y-4">
+                {cart.bundles.map((bundle) => (
+                  <div 
+                    key={bundle.id}
+                    className="bg-green-50 border border-green-200 rounded-lg p-4"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-medium text-gray-900">{bundle.bundleName}</h3>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500 line-through">
+                          ₺{bundle.originalPrice.toFixed(2)}
+                        </p>
+                        <p className="text-lg font-semibold text-green-600">
+                          ₺{bundle.discountedPrice.toFixed(2)}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {step === 2 && (
-              <div className="space-y-6">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <h2 className="text-xl font-semibold">Kargo</h2>
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label className={`rounded-xl border p-4 cursor-pointer ${shipping === 'standart' ? 'border-brand ring-2 ring-brand/30' : 'border-slate-200'}`}>
-                      <input type="radio" name="ship" className="sr-only" checked={shipping==='standart'} onChange={()=>setShipping('standart')} />
-                      <div className="font-medium">Standart Kargo</div>
-                      <div className="text-sm text-slate-600">2-3 iş günü • ₺29,90</div>
-                    </label>
-                    <label className={`rounded-xl border p-4 cursor-pointer ${shipping === 'express' ? 'border-brand ring-2 ring-brand/30' : 'border-slate-200'}`}>
-                      <input type="radio" name="ship" className="sr-only" checked={shipping==='express'} onChange={()=>setShipping('express')} />
-                      <div className="font-medium">Hızlı Kargo</div>
-                      <div className="text-sm text-slate-600">Ertesi gün • ₺59,90</div>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <h2 className="text-xl font-semibold">Ödeme Yöntemi</h2>
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <label className={`rounded-xl border p-4 cursor-pointer ${payment === 'card' ? 'border-brand ring-2 ring-brand/30' : 'border-slate-200'}`}>
-                      <input type="radio" name="pay" className="sr-only" checked={payment==='card'} onChange={()=>setPayment('card')} />
-                      <div className="font-medium">Kredi Kartı</div>
-                    </label>
-                    <label className={`rounded-xl border p-4 cursor-pointer ${payment === 'eft' ? 'border-brand ring-2 ring-brand/30' : 'border-slate-200'}`}>
-                      <input type="radio" name="pay" className="sr-only" checked={payment==='eft'} onChange={()=>setPayment('eft')} />
-                      <div className="font-medium">Havale/EFT</div>
-                    </label>
-                    <label className={`rounded-xl border p-4 cursor-pointer ${payment === 'cod' ? 'border-brand ring-2 ring-brand/30' : 'border-slate-200'}`}>
-                      <input type="radio" name="pay" className="sr-only" checked={payment==='cod'} onChange={()=>setPayment('cod')} />
-                      <div className="font-medium">Kapıda Ödeme</div>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <button onClick={()=>setStep(1)} className="rounded-lg border px-4 py-2.5">Geri</button>
-                  <button onClick={()=>setStep(3)} className="rounded-lg bg-brand px-4 py-2.5 text-white">Devam</button>
-                </div>
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="space-y-6">
-                <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <h2 className="text-xl font-semibold">Onay</h2>
-                  <div className="mt-3 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <input id="agree" type="checkbox" checked={agree} onChange={(e)=>setAgree(e.target.checked)} />
-                      <label htmlFor="agree" className="text-sm text-slate-700">Mesafeli satış sözleşmesini okudum ve kabul ediyorum</label>
                     </div>
-                    <div className="flex gap-3">
-                      <button onClick={()=>setStep(2)} className="rounded-lg border px-4 py-2.5">Geri</button>
-                      <button onClick={completeOrder} disabled={!agree || submitting} className="rounded-lg bg-brand px-4 py-2.5 text-white disabled:opacity-50">{submitting ? 'İşleniyor…' : 'Siparişi Tamamla'}</button>
+                    <p className="text-sm text-green-700">
+                      {bundle.discountAmount.toFixed(2)} TL tasarruf
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {bundle.items.map((item) => (
+                        <div key={item.id} className="flex items-center gap-2 text-sm text-gray-600">
+                          <span>•</span>
+                          <span>{item.productName} x{item.quantity}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <aside className="lg:col-span-1">
-            <div className="lg:sticky lg:top-24 rounded-2xl border border-slate-200 bg-white p-5">
-              <h3 className="text-lg font-semibold">Sipariş Özeti</h3>
-              <div className="mt-3 space-y-2">
-                <div className="flex items-center justify-between text-slate-700">
-                  <span>Ara Toplam</span>
-                  <span>₺{total.toFixed(2)}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-700">
-                  <span>Kargo</span>
-                  <span>₺{items.length > 0 ? shippingFee.toFixed(2) : '0.00'}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-700">
-                  <span>İndirim</span>
-                  <span>-₺{discount.toFixed(2)}</span>
-                </div>
-                <div className="border-t my-2" />
-                <div className="flex items-center justify-between font-semibold text-slate-900">
-                  <span>Ödenecek</span>
-                  <span>₺{payable.toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="mt-4 flex gap-2">
-                <input placeholder="Kupon Kodu" value={coupon} onChange={(e)=>setCoupon(e.target.value)} className="flex-1 rounded-lg border border-slate-300 px-3 py-2" />
-                <button className="rounded-lg border px-3 py-2">Uygula</button>
+                ))}
               </div>
             </div>
-          </aside>
+          )}
         </div>
-      )}
+
+        {/* Cart Summary */}
+        <div className="lg:col-span-1">
+          <CartSummaryComponent
+            summary={summary}
+            subtotal={cart.subtotal}
+            shippingCost={cart.shippingTotal}
+            discountTotal={cart.discountTotal}
+            grandTotal={cart.grandTotal}
+          />
+        </div>
+      </div>
+
+      {/* Trust Section */}
+      <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+          <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+            <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Güvenli Alışveriş</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              SSL sertifikası ile korunan ödeme sayfası
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+          <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Hızlı Kargo</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              300 TL üzeri ücretsiz kargo fırsatı
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
+          <div className="flex-shrink-0 w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+            <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Kolay İade</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              14 gün içinde koşulsuz iade hakkı
+            </p>
+          </div>
+        </div>
+      </div>
     </main>
-  )
+  );
 }
