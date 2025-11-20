@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
         createdAt: new Date().toISOString()
       }
     };
+    console.log('Payment request prepared:', JSON.stringify(paymentRequest, null, 2));
 
     // Create payment
     const paymentManager = getPaymentManager();

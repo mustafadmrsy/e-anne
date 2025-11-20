@@ -27,17 +27,14 @@ export class OrderManager extends BaseManager<Order> {
   /**
    * Create order from cart
    */
-  async createOrder(payload: CreateOrderPayload, cartOverride?: any): Promise<Order> {
-    // Use override cart for legacy carts, otherwise fetch from Firestore
-    const cart = cartOverride || await this.cartManager.getById(payload.cartId);
+  async createOrder(payload: CreateOrderPayload): Promise<Order> {
+    const cart = payload.cart;
 
     if (!cart) {
       throw new Error('Cart not found');
     }
 
-    // Skip empty check for legacy carts
-    const isLegacyCart = payload.cartId.startsWith('legacy-');
-    if (!isLegacyCart && cart.items.length === 0 && cart.bundles.length === 0) {
+    if (cart.items.length === 0 && cart.bundles.length === 0) {
       throw new Error('Cart is empty');
     }
 
@@ -45,39 +42,51 @@ export class OrderManager extends BaseManager<Order> {
     const orderNumber = await this.generateOrderNumber();
 
     // Convert cart items to order items
-    const orderItems: OrderItem[] = (cart.items || []).map((item: { id: any; productId: any; productName: any; productSlug: any; productImage: { url: any; }; unitPrice: any; basePrice: any; totalPrice: any; quantity: any; variationId: any; variationName: any; variationValue: any; sellerId: any; sellerName: any; }) => ({
-      id: item.id,
-      productId: item.productId,
-      productName: item.productName,
-      productSlug: item.productSlug,
-      productImage: typeof item.productImage === 'string' ? item.productImage : item.productImage?.url || '',
-      unitPrice: item.unitPrice || item.basePrice || 0,
-      totalPrice: item.totalPrice,
-      quantity: item.quantity,
-      variationId: item.variationId,
-      variationName: item.variationName,
-      variationValue: item.variationValue,
-      sellerId: item.sellerId,
-      sellerName: item.sellerName
-    }));
-
-    // Convert cart bundles to order bundles
-    const orderBundles: OrderBundle[] = (cart.bundles || []).map((bundle: { id: any; bundleId: any; bundleName: any; items: any[]; originalPrice: any; discountedPrice: any; discountAmount: any; quantity: any; }) => ({
-      id: bundle.id,
-      bundleId: bundle.bundleId,
-      bundleName: bundle.bundleName,
-      items: bundle.items.map((item: { id: any; productId: any; productName: any; productSlug: any; productImage: { url: any; }; unitPrice: any; basePrice: any; totalPrice: any; quantity: any; sellerId: any; sellerName: any; }) => ({
+    const orderItems: OrderItem[] = (cart.items || []).map((item) => {
+      const orderItem: any = {
         id: item.id,
         productId: item.productId,
         productName: item.productName,
         productSlug: item.productSlug,
-        productImage: typeof item.productImage === 'string' ? item.productImage : item.productImage?.url || '',
-        unitPrice: item.unitPrice || item.basePrice || 0,
+        productImage: typeof item.productImage === 'string' ? item.productImage : (item.productImage as any)?.url || '',
+        unitPrice: (item as any).unitPrice || (item as any).basePrice || 0,
         totalPrice: item.totalPrice,
-        quantity: item.quantity,
-        sellerId: item.sellerId,
-        sellerName: item.sellerName
-      })),
+        quantity: item.quantity
+      };
+      
+      // Only add optional fields if they have values
+      if (item.sellerId) orderItem.sellerId = item.sellerId;
+      if (item.sellerName) orderItem.sellerName = item.sellerName;
+      if (item.variationId) orderItem.variationId = item.variationId;
+      if (item.variationName) orderItem.variationName = item.variationName;
+      if (item.variationValue) orderItem.variationValue = item.variationValue;
+      
+      return orderItem as OrderItem;
+    });
+
+    // Convert cart bundles to order bundles
+    const orderBundles: OrderBundle[] = (cart.bundles || []).map((bundle) => ({
+      id: bundle.id,
+      bundleId: bundle.bundleId,
+      bundleName: bundle.bundleName,
+      items: bundle.items.map((item) => {
+        const orderItem: any = {
+          id: item.id,
+          productId: item.productId,
+          productName: item.productName,
+          productSlug: item.productSlug,
+          productImage: typeof item.productImage === 'string' ? item.productImage : (item.productImage as any)?.url || '',
+          unitPrice: (item as any).unitPrice || (item as any).basePrice || 0,
+          totalPrice: item.totalPrice,
+          quantity: item.quantity
+        };
+        
+        // Only add optional fields if they have values
+        if (item.sellerId) orderItem.sellerId = item.sellerId;
+        if (item.sellerName) orderItem.sellerName = item.sellerName;
+        
+        return orderItem;
+      }),
       originalPrice: bundle.originalPrice,
       discountedPrice: bundle.discountedPrice,
       discountAmount: bundle.discountAmount,
@@ -121,17 +130,20 @@ export class OrderManager extends BaseManager<Order> {
 
     const order = await this.create(orderId, orderData);
 
-    // Update cart status (skip for legacy carts)
-    if (!payload.cartId.startsWith('legacy-')) {
-      await this.cartManager.update(payload.cartId, {
-        status: 'converted'
-      });
+    // Update cart status if it's a persistent cart (not legacy)
+    const isLegacyCart = cart.id.startsWith('legacy-');
+    if (!isLegacyCart) {
+      try {
+        await this.cartManager.update(cart.id, {
+          status: 'converted'
+        });
+      } catch (error) {
+        console.warn('Failed to update cart status:', error);
+      }
     }
 
-    // Decrement stock for all items (skip for legacy carts with no items)
-    if (orderItems.length > 0) {
-      await this.decrementStockForOrder(order);
-    }
+    // Decrement stock for all items
+    await this.decrementStockForOrder(order);
 
     return order;
   }

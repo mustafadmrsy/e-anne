@@ -3,7 +3,7 @@
  * SOLID: Single Responsibility - Order-related types only
  */
 
-import { CartItem, CartBundle } from './cart.model';
+import { CartItem, CartBundle, Cart } from './cart.model';
 
 // Customer information
 export interface CustomerInfo {
@@ -150,7 +150,7 @@ export interface Order {
 
 // Create order payload
 export interface CreateOrderPayload {
-  cartId: string;
+  cart: Cart;
   customer: CustomerInfo;
   billingAddress: Address;
   shippingAddress: Address;

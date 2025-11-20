@@ -23,7 +23,7 @@ export function OrderReviewStep() {
       // Create order via checkout service
       const { getCheckoutService } = await import('@/lib/services');
       const checkoutService = getCheckoutService();
-      
+      console.log('CART:  ', cart);
       if (!cart?.id) {
         throw new Error('Cart not found');
       }
@@ -36,7 +36,7 @@ export function OrderReviewStep() {
       });
       
       const orderResult = await checkoutService.createOrder({
-        cartId: cart.id,
+        cart: cart,
         customer: customerInfo as any,
         shippingAddress: shippingAddress as any,
         billingAddress: shippingAddress as any, // Same as shipping for now
